@@ -1,0 +1,208 @@
+use dawn_crypto::*;
+use serde::{Serialize, Deserialize};
+use hex::{encode, decode};
+use crate::Message::*;
+
+#[cfg(test)]
+mod tests;
+
+// Error return macro
+macro_rules! error{
+	($a:expr) => {
+		return Err($a.to_string())
+	}
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+enum Message {
+	InitRequest(InitRequest),
+	InitAccept(InitAccept),
+	TextMessage(TextMessage),
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct InitRequest {
+	id: String,
+	mdc: String,
+	kyber: String,
+	sign: String,
+	name: String,
+	comment: String
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct InitAccept {
+	kyber: String,
+	sign: String,
+	mdc: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct TextMessage {
+	text: String,
+	mdc: String,
+}
+
+// generate an init request using init id, init keys and own signature key
+// returns: (own kyber public key, own kyber secret key), (own curve public key, own curve secret key), pfs key, id, message detail code, encrypted message
+pub fn gen_init_request(
+	remote_pubkey_kyber: Vec<u8>,
+	remote_pubkey_curve: Vec<u8>,
+	own_pubkey_sig: Vec<u8>,
+	own_seckey_sig: Vec<u8>,
+	name: &str,
+	comment: &str
+) -> Result<
+	(
+		(Vec<u8>, Vec<u8>), // own kyber keypair
+		(Vec<u8>, Vec<u8>), // own curve keypair
+		Vec<u8>, // pfs key
+		String, // id
+		String, // message detail code
+		Vec<u8> // encrypted message
+	), String> {
+	
+	let ((own_pubkey_kyber, own_seckey_kyber), (own_pubkey_curve, own_seckey_curve), id) = init();
+	let pfs_key = match get_curve_secret(own_seckey_curve.clone(), remote_pubkey_curve) {
+		Ok(res) => res,
+		Err(err) => return Err(err)
+	};
+	let mdc = mdc_gen();
+	
+	// generate message
+	let message_data = Message::InitRequest( InitRequest {
+		id: id.to_string(),
+		mdc: mdc.to_string(),
+		kyber: encode(own_pubkey_kyber.clone()),
+		sign: encode(own_pubkey_sig),
+		name: name.to_string(),
+		comment: comment.to_string()
+	} );
+	let message = match serde_json::to_string(&message_data) {
+		Ok(res) => res,
+		Err(_) => error!("json serialization failed")
+	};
+	
+	// encrypt using derived pfs key
+	let (mut msg_ciphertext, new_pfs_key) = match encrypt_msg(remote_pubkey_kyber, own_seckey_sig, pfs_key, &message) {
+		Ok(res) => res,
+		Err(err) => return Err(err)
+	};
+	
+	// put the curve public key in front as it is needed to derive the pfs key
+	let mut ciphertext = own_pubkey_curve.clone();
+	ciphertext.append(&mut msg_ciphertext);
+	
+	Ok(((own_pubkey_kyber, own_seckey_kyber), (own_pubkey_curve, own_seckey_curve), new_pfs_key, id, mdc, ciphertext))
+}
+
+// parse an init request
+// returns id, mdc, keys, name and comment
+pub fn parse_init_request(request_body: &[u8], own_seckey_kyber: Vec<u8>, own_seckey_curve: Vec<u8>) -> Result<(String, String, Vec<u8>, Vec<u8>, Vec<u8>, String, String), String> {
+	// check length
+	if request_body.len() <= 32 { error!("request was too short!"); }
+	
+	let (remote_pubkey_curve, ciphertext) = request_body.split_at(32);
+	let pfs_key = match get_curve_secret(own_seckey_curve, remote_pubkey_curve.to_vec()) {
+		Ok(res) => res,
+		Err(err) => return Err(err)
+	};
+	
+	// decrypt
+	let (msg_content, new_pfs_key) = match decrypt_msg(own_seckey_kyber, None, pfs_key, ciphertext.to_vec()) {
+		Ok(res) => res,
+		Err(err) => return Err(err)
+	};
+	
+	// parse
+	let message = match serde_json::from_str::<Message>(&msg_content) {
+		Ok(res) => res,
+		Err(_) => error!("json parsing failed")
+	};
+	
+	let init_request = match message {
+		InitRequest(req) => req,
+		_ => error!("content did not match init request type")
+	};
+	
+	let remote_pubkey_kyber = match decode(&init_request.kyber) {
+		Ok(res) => res,
+		Err(_) => error!("remote kyber pubkey invalid")
+	};
+	let remote_pubkey_sig = match decode(&init_request.sign) {
+		Ok(res) => res,
+		Err(_) => error!("remote signature pubkey invalid")
+	};
+	
+	Ok((init_request.id, init_request.mdc, remote_pubkey_kyber, remote_pubkey_sig, new_pfs_key, init_request.name, init_request.comment))
+}
+
+// accept init request
+// returns the new PFS key, own kyber keypair ,message detail code and ciphertext
+pub fn accept_init_request(own_pubkey_sig: Vec<u8>, own_seckey_sig: Vec<u8>, remote_pubkey_kyber: Vec<u8>, pfs_key: Vec<u8>) -> Result<(Vec<u8>, (Vec<u8>, Vec<u8>), String, Vec<u8>), String> {
+	let mdc = mdc_gen();
+	let (own_pubkey_kyber, own_seckey_kyber) = kyber_keygen();
+	
+	let message_data = Message::InitAccept( InitAccept {
+		kyber: encode(&own_pubkey_kyber),
+		sign: encode(&own_pubkey_sig),
+		mdc: mdc.clone(),
+	} );
+	let message = match serde_json::to_string(&message_data) {
+		Ok(res) => res,
+		Err(_) => error!("json serialization failed")
+	};
+	
+	// encrypt message
+	let (msg_ciphertext, new_pfs_key) = match encrypt_msg(remote_pubkey_kyber, own_seckey_sig, pfs_key, &message) {
+		Ok(res) => res,
+		Err(err) => return Err(err)
+	};
+	
+	Ok((new_pfs_key, (own_pubkey_kyber, own_seckey_kyber), mdc, msg_ciphertext))
+}
+
+// this generates a handle
+pub fn gen_handle(init_pubkey_kyber: Vec<u8>, init_pubkey_curve: Vec<u8>, name: &str) -> Vec<u8> {
+	let init_pubkey_kyber_string = encode(&init_pubkey_kyber);
+	let init_pubkey_curve_string = encode(&init_pubkey_curve);
+	let handle_content = format!("{}\n{}\n{}", init_pubkey_kyber_string, init_pubkey_curve_string, name);
+	handle_content.as_bytes().to_vec()
+}
+
+// this parses a handle
+pub fn parse_handle(handle_content: Vec<u8>) -> Result<(Vec<u8>, Vec<u8>, String), String> {
+	let handle_string = match String::from_utf8(handle_content) {
+		Ok(res) => res,
+		Err(_) => error!("handle content is not valid UTF-8!")
+	};
+	let mut information = handle_string.split("\n");
+	
+	let init_pubkey_kyber = match information.next() {
+		Some(res) => match decode(res) {
+			Ok(bytes) => bytes.to_vec(),
+			Err(_) => error!("handle format invalid!")
+		},
+		None => error!("handle format invalid!")
+	};
+	let init_pubkey_curve = match information.next() {
+		Some(res) => match decode(res) {
+			Ok(bytes) => bytes.to_vec(),
+			Err(_) => error!("handle format invalid!")
+		},
+		None => error!("handle format invalid!")
+	};
+	let name = match information.next() {
+		Some(res) => res.to_string(),
+		None => error!("handle format invalid!")
+	};
+	Ok((init_pubkey_kyber, init_pubkey_curve, name))
+}
+
+pub fn gen_curve_keys() -> (Vec<u8>, Vec<u8>) {
+	curve_keygen()
+}
+
+pub fn gen_kyber_keys() -> (Vec<u8>, Vec<u8>) {
+	kyber_keygen()
+}
