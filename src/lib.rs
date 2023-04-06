@@ -3,6 +3,8 @@ use serde::{Serialize, Deserialize};
 use hex::{encode, decode};
 use crate::Message::*;
 
+mod content_type;
+
 #[cfg(test)]
 mod tests;
 
@@ -161,6 +163,31 @@ pub fn accept_init_request(own_pubkey_sig: Vec<u8>, own_seckey_sig: Vec<u8>, rem
 	
 	Ok((new_pfs_key, (own_pubkey_kyber, own_seckey_kyber), mdc, msg_ciphertext))
 }
+
+// parse a received message
+// returns content type, content (can be a string, a Vec or both depending on the message type), new PFS key and message detail code
+pub fn parse_msg(msg_ciphertext: &[u8], own_seckey_kyber: Vec<u8>, remote_pubkey_sig: Option<Vec<u8>>, pfs_key: Vec<u8>) -> Result<((u8, Option<String>, Option<Vec<u8>>), Vec<u8>, String), String> {
+	// decrypt
+	let (msg_content, new_pfs_key) = match decrypt_msg(own_seckey_kyber, remote_pubkey_sig, pfs_key, msg_ciphertext.to_vec()) {
+		Ok(res) => res,
+		Err(_) => error!("decryption failed")
+	};
+	
+	// parse
+	let message = match serde_json::from_str::<Message>(&msg_content) {
+		Ok(res) => res,
+		Err(_) => error!("json parsing failed")
+	};
+	
+	let (content, mdc) = match message {
+		TextMessage(msg) => ((content_type::TEXT, Some(msg.text), None::<Vec<u8>>), msg.mdc),
+		_ => error!("message type not known or unexpected init message")
+	};
+	
+	Ok((content, new_pfs_key, mdc))
+}
+
+// send a message
 
 // this generates a handle
 pub fn gen_handle(init_pubkey_kyber: Vec<u8>, init_pubkey_curve: Vec<u8>, name: &str) -> Vec<u8> {
