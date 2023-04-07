@@ -27,10 +27,19 @@ fn test_init_and_messaging() {
 	assert_eq!(recv_comment, comment);
 	
 	// Bob accepts the init request
-	let (new_pfs_key_2, (bob_pk_kyber, bob_sk_kyber), mdc_2, init_accept_ciphertext) = accept_init_request(bob_pk_sig, bob_sk_sig, recv_alice_pk_kyber, new_pfs_key).unwrap();
+	let (bob_new_pfs_key_2, (bob_pk_kyber, bob_sk_kyber), mdc_2, init_accept_ciphertext) = accept_init_request(bob_pk_sig.clone(), bob_sk_sig, recv_alice_pk_kyber, new_pfs_key.clone()).unwrap();
 	
 	// Alice happily receives the accept message
-	//let 
+	let (recv_bob_pk_kyber, recv_bob_pk_sig, alice_new_pfs_key_2, mdc_3) = parse_init_response(&init_accept_ciphertext, alice_sk_kyber, new_pfs_key).unwrap();
+	
+	// check the received values
+	assert_eq!(recv_bob_pk_kyber, bob_pk_kyber);
+	assert_eq!(recv_bob_pk_sig, bob_pk_sig);
+	assert_eq!(alice_new_pfs_key_2, bob_new_pfs_key_2);
+	assert_eq!(mdc_2, mdc_3);
+	
+	// now we can send some messages!
+	
 }
 
 #[test]

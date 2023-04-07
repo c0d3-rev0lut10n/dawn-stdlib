@@ -19,7 +19,8 @@ macro_rules! error{
 enum Message {
 	InitRequest(InitRequest),
 	InitAccept(InitAccept),
-	TextMessage(TextMessage),
+	Text(TextMessage),
+	Internal(InternalMessage),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -42,6 +43,13 @@ struct InitAccept {
 #[derive(Serialize, Deserialize, Debug)]
 struct TextMessage {
 	text: String,
+	mdc: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct InternalMessage {
+	event: u8,
+	event_data: String,
 	mdc: String,
 }
 
@@ -140,7 +148,7 @@ pub fn parse_init_request(request_body: &[u8], own_seckey_kyber: Vec<u8>, own_se
 }
 
 // accept init request
-// returns the new PFS key, own kyber keypair ,message detail code and ciphertext
+// returns the new PFS key, own kyber keypair, message detail code and ciphertext
 pub fn accept_init_request(own_pubkey_sig: Vec<u8>, own_seckey_sig: Vec<u8>, remote_pubkey_kyber: Vec<u8>, pfs_key: Vec<u8>) -> Result<(Vec<u8>, (Vec<u8>, Vec<u8>), String, Vec<u8>), String> {
 	let mdc = mdc_gen();
 	let (own_pubkey_kyber, own_seckey_kyber) = kyber_keygen();
@@ -164,6 +172,39 @@ pub fn accept_init_request(own_pubkey_sig: Vec<u8>, own_seckey_sig: Vec<u8>, rem
 	Ok((new_pfs_key, (own_pubkey_kyber, own_seckey_kyber), mdc, msg_ciphertext))
 }
 
+// parse init response message (expected to be the first message on a new ID after an init request was sent)
+// As of now, only accept messages are sent. If the user rejects the request, no message is sent. Therefore, we only try to parse init accept messages.
+// returns remote kyber and signature pubkeys, the new PFS key and message detail code
+pub fn parse_init_response(msg_ciphertext: &[u8], own_seckey_kyber: Vec<u8>, pfs_key: Vec<u8>) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>, String), String> {
+	// decrypt
+	let (msg_content, new_pfs_key) = match decrypt_msg(own_seckey_kyber, None, pfs_key, msg_ciphertext.to_vec()) {
+		Ok(res) => res,
+		Err(err) => return Err(err)
+	};
+	
+	// parse
+	let message = match serde_json::from_str::<Message>(&msg_content) {
+		Ok(res) => res,
+		Err(_) => error!("json parsing failed")
+	};
+	
+	let init_accept = match message {
+		InitAccept(resp) => resp,
+		_ => error!("content did not match init accept type")
+	};
+	
+	let remote_pubkey_kyber = match decode(&init_accept.kyber) {
+		Ok(res) => res,
+		Err(_) => error!("remote kyber pubkey invalid")
+	};
+	let remote_pubkey_sig = match decode(&init_accept.sign) {
+		Ok(res) => res,
+		Err(_) => error!("remote signature pubkey invalid")
+	};
+	
+	Ok((remote_pubkey_kyber, remote_pubkey_sig, new_pfs_key, init_accept.mdc))
+}
+
 // parse a received message
 // returns content type, content (can be a string, a Vec or both depending on the message type), new PFS key and message detail code
 pub fn parse_msg(msg_ciphertext: &[u8], own_seckey_kyber: Vec<u8>, remote_pubkey_sig: Option<Vec<u8>>, pfs_key: Vec<u8>) -> Result<((u8, Option<String>, Option<Vec<u8>>), Vec<u8>, String), String> {
@@ -180,7 +221,7 @@ pub fn parse_msg(msg_ciphertext: &[u8], own_seckey_kyber: Vec<u8>, remote_pubkey
 	};
 	
 	let (content, mdc) = match message {
-		TextMessage(msg) => ((content_type::TEXT, Some(msg.text), None::<Vec<u8>>), msg.mdc),
+		Text(msg) => ((content_type::TEXT, Some(msg.text), None::<Vec<u8>>), msg.mdc),
 		_ => error!("message type not known or unexpected init message")
 	};
 	
@@ -188,6 +229,34 @@ pub fn parse_msg(msg_ciphertext: &[u8], own_seckey_kyber: Vec<u8>, remote_pubkey
 }
 
 // send a message
+// returns new PFS key, message detail code and ciphertext
+pub fn send_msg((msg_type, msg_text, msg_data): (u8, Option<&str>, Option<&[u8]>), remote_pubkey_kyber: Vec<u8>, own_seckey_sig: Vec<u8>, pfs_key: Vec<u8>) -> Result<(Vec<u8>, String, Vec<u8>), String> {
+	// create message
+	let mdc = mdc_gen();
+	let message_data: Message = match msg_type {
+		content_type::TEXT => { 
+			if msg_text.is_none() { error!("no text was provided"); }
+			Message::Text( TextMessage {
+				text: String::from(msg_text.unwrap()),
+				mdc: mdc.clone()
+			}
+		) },
+		_ => error!("requested content type not implemented")
+	};
+	
+	let message = match serde_json::to_string(&message_data) {
+		Ok(res) => res,
+		Err(_) => error!("json serialization failed")
+	};
+	
+	// encrypt message
+	let (msg_ciphertext, new_pfs_key) = match encrypt_msg(remote_pubkey_kyber, own_seckey_sig, pfs_key, &message) {
+		Ok(res) => res,
+		Err(err) => return Err(err)
+	};
+	
+	Ok((new_pfs_key, mdc, msg_ciphertext))
+}
 
 // this generates a handle
 pub fn gen_handle(init_pubkey_kyber: Vec<u8>, init_pubkey_curve: Vec<u8>, name: &str) -> Vec<u8> {
