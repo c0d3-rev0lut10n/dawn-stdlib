@@ -30,7 +30,7 @@ fn test_init_and_messaging() {
 	let (alice_pk_sig, alice_sk_sig) = sign_keygen();
 	
 	// Alice sends an init request to Bob
-	let ((alice_pk_kyber, alice_sk_kyber), (alice_pk_curve, alice_sk_curve), new_pfs_key, id, mdc, init_request_ciphertext) = gen_init_request(bob_init_pk_kyber, bob_init_pk_curve, alice_pk_sig.clone(), alice_sk_sig, name, comment).unwrap();
+	let ((alice_pk_kyber, alice_sk_kyber), (alice_pk_curve, alice_sk_curve), new_pfs_key, id, mdc, init_request_ciphertext) = gen_init_request(bob_init_pk_kyber, bob_init_pk_curve, alice_pk_sig.clone(), alice_sk_sig.clone(), name, comment).unwrap();
 	
 	// Bob's client parses the init request
 	let (recv_id, recv_mdc, recv_alice_pk_kyber, recv_alice_pk_sig, recv_new_pfs_key, recv_name, recv_comment) = parse_init_request(&init_request_ciphertext, bob_init_sk_kyber, bob_init_sk_curve).unwrap();
@@ -45,10 +45,10 @@ fn test_init_and_messaging() {
 	assert_eq!(recv_comment, comment);
 	
 	// Bob accepts the init request
-	let (bob_new_pfs_key_2, (bob_pk_kyber, bob_sk_kyber), mdc_2, init_accept_ciphertext) = accept_init_request(bob_pk_sig.clone(), bob_sk_sig, recv_alice_pk_kyber, new_pfs_key.clone()).unwrap();
+	let (bob_new_pfs_key_2, (bob_pk_kyber, bob_sk_kyber), mdc_2, init_accept_ciphertext) = accept_init_request(bob_pk_sig.clone(), bob_sk_sig.clone(), recv_alice_pk_kyber, new_pfs_key.clone()).unwrap();
 	
 	// Alice happily receives the accept message
-	let (recv_bob_pk_kyber, recv_bob_pk_sig, alice_new_pfs_key_2, mdc_3) = parse_init_response(&init_accept_ciphertext, alice_sk_kyber, new_pfs_key).unwrap();
+	let (recv_bob_pk_kyber, recv_bob_pk_sig, alice_new_pfs_key_2, mdc_3) = parse_init_response(&init_accept_ciphertext, alice_sk_kyber.clone(), new_pfs_key.clone()).unwrap();
 	
 	// check the received values
 	assert_eq!(recv_bob_pk_kyber, bob_pk_kyber);
@@ -57,7 +57,50 @@ fn test_init_and_messaging() {
 	assert_eq!(mdc_2, mdc_3);
 	
 	// now we can send some messages!
+	// Bob sends the first message
+	let (bob_new_pfs_key_3, mdc_4, bob_msg_ciphertext_1) = send_msg((content_type::TEXT, Some("Hi Alice"), None), alice_pk_kyber.clone(), bob_sk_sig.clone(), bob_new_pfs_key_2.clone()).unwrap();
 	
+	// Alice receives it
+	let ((recv_content_type, recv_text, recv_bytes), alice_new_pfs_key_3, mdc_5) = parse_msg(&bob_msg_ciphertext_1, alice_sk_kyber.clone(), Some(bob_pk_sig.clone()), alice_new_pfs_key_2.clone()).unwrap();
+	
+	// check what was received
+	assert_eq!(recv_content_type, content_type::TEXT);
+	assert_eq!(recv_text, Some("Hi Alice".to_string()));
+	assert_eq!(recv_bytes, None);
+	assert_eq!(alice_new_pfs_key_3, bob_new_pfs_key_3);
+	assert_eq!(mdc_4, mdc_5);
+	
+	// Alice sends two messages
+	let (alice_new_pfs_key_4, mdc_6, alice_msg_ciphertext_1) = send_msg((content_type::TEXT, Some("Hi Bob"), None), bob_pk_kyber.clone(), alice_sk_sig.clone(), alice_new_pfs_key_3).unwrap();
+	let (alice_new_pfs_key_5, mdc_7, alice_msg_ciphertext_2) = send_msg((content_type::TEXT, Some("How are you?"), None), bob_pk_kyber.clone(), alice_sk_sig.clone(), alice_new_pfs_key_4.clone()).unwrap();
+	
+	// Bob receives both messages
+	let ((recv_content_type_1, recv_text_1, recv_bytes_1), bob_new_pfs_key_4, mdc_8) = parse_msg(&alice_msg_ciphertext_1, bob_sk_kyber.clone(), Some(alice_pk_sig.clone()), bob_new_pfs_key_3.clone()).unwrap();
+	let ((recv_content_type_2, recv_text_2, recv_bytes_2), bob_new_pfs_key_5, mdc_9) = parse_msg(&alice_msg_ciphertext_2, bob_sk_kyber.clone(), Some(alice_pk_sig.clone()), bob_new_pfs_key_4.clone()).unwrap();
+	
+	// check what was received
+	assert!(recv_content_type_1 == recv_content_type_2 && recv_content_type_1 == content_type::TEXT);
+	assert_eq!(recv_text_1, Some("Hi Bob".to_string()));
+	assert_eq!(recv_text_2, Some("How are you?".to_string()));
+	assert!(recv_bytes_1.is_none() && recv_bytes_2.is_none());
+	assert_eq!(alice_new_pfs_key_4, bob_new_pfs_key_4);
+	assert_eq!(alice_new_pfs_key_5, bob_new_pfs_key_5);
+	assert_ne!(alice_new_pfs_key_4, alice_new_pfs_key_5);
+	assert_eq!(mdc_6, mdc_8);
+	assert_eq!(mdc_7, mdc_9);
+	
+	// Bob sends a message
+	let (bob_new_pfs_key_6, mdc_10, bob_msg_ciphertext_2) = send_msg((content_type::TEXT, Some("I'm very happy because the test just passed!"), None), alice_pk_kyber.clone(), bob_sk_sig.clone(), bob_new_pfs_key_5).unwrap();
+	
+	// Alice receives it
+	let ((recv_content_type, recv_text, recv_bytes), alice_new_pfs_key_6, mdc_11) = parse_msg(&bob_msg_ciphertext_2, alice_sk_kyber, Some(bob_pk_sig), alice_new_pfs_key_5).unwrap();
+	
+	// check what was received
+	assert_eq!(recv_content_type, content_type::TEXT);
+	assert_eq!(recv_text, Some("I'm very happy because the test just passed!".to_string()));
+	assert!(recv_bytes.is_none());
+	assert_eq!(alice_new_pfs_key_6, bob_new_pfs_key_6);
+	assert_eq!(mdc_10, mdc_11);
 }
 
 #[test]
