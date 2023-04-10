@@ -21,6 +21,9 @@ use serde::{Serialize, Deserialize};
 use hex::{encode, decode};
 use crate::Message::*;
 
+// re-exports that can be directly used by the Dawn client
+pub use dawn_crypto::{init, sign_keygen, id_gen, get_temp_id, get_next_id};
+
 mod content_type;
 
 #[cfg(test)]
@@ -311,12 +314,4 @@ pub fn parse_handle(handle_content: Vec<u8>) -> Result<(Vec<u8>, Vec<u8>, String
 		None => error!("handle format invalid!")
 	};
 	Ok((init_pubkey_kyber, init_pubkey_curve, name))
-}
-
-pub fn gen_curve_keys() -> (Vec<u8>, Vec<u8>) {
-	curve_keygen()
-}
-
-pub fn gen_kyber_keys() -> (Vec<u8>, Vec<u8>) {
-	kyber_keygen()
 }
