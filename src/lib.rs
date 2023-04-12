@@ -243,6 +243,7 @@ pub fn parse_msg(msg_ciphertext: &[u8], own_seckey_kyber: &[u8], remote_pubkey_s
 	
 	let (content, mdc) = match message {
 		Text(msg) => ((content_type::TEXT, Some(msg.text), None::<Vec<u8>>), msg.mdc),
+		Internal(msg) => ((content_type::INTERNAL, Some(msg.event_data), None), msg.mdc),
 		_ => error!("message type not known or unexpected init message")
 	};
 	
