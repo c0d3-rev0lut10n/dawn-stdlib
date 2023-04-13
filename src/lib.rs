@@ -42,6 +42,7 @@ enum Message {
 	InitAccept(InitAccept),
 	Text(TextMessage),
 	Internal(InternalMessage),
+	Voice(VoiceMessage),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -71,6 +72,12 @@ struct TextMessage {
 struct InternalMessage {
 	event: u8,
 	event_data: String,
+	mdc: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct VoiceMessage {
+	voice: String,
 	mdc: String,
 }
 
@@ -261,8 +268,26 @@ pub fn send_msg((msg_type, msg_text, msg_data): (u8, Option<&str>, Option<&[u8]>
 			Message::Text( TextMessage {
 				text: String::from(msg_text.unwrap()),
 				mdc: mdc.clone()
-			}
-		) },
+			} )
+		},
+		content_type::INTERNAL => {
+			if msg_text.is_none() { error!("no event code was provided"); }
+			let event_id = msg_text.unwrap().parse::<u8>();
+			if event_id.is_err() { error!("invalid event code"); }
+			if msg_data.is_none() { error!("missing event data"); }
+			Message::Internal( InternalMessage {
+				event: event_id.unwrap(),
+				event_data: encode(&msg_data.unwrap()),
+				mdc: mdc.clone()
+			} )
+		},
+		content_type::VOICE => {
+			if msg_data.is_none() { error!("no voice data was provided"); }
+			Message::Voice( VoiceMessage {
+				voice: encode(&msg_data.unwrap()),
+				mdc: mdc.clone()
+			} )
+		},
 		_ => error!("requested content type not implemented")
 	};
 	

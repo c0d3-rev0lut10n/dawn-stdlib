@@ -18,3 +18,4 @@
 
 pub const INTERNAL: u8 = 0;
 pub const TEXT: u8 = 1;
+pub const VOICE: u8 = 2;
