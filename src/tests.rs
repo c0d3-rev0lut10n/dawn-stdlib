@@ -101,6 +101,19 @@ fn test_init_and_messaging() {
 	assert!(recv_bytes.is_none());
 	assert_eq!(alice_new_pfs_key_6, bob_new_pfs_key_6);
 	assert_eq!(mdc_10, mdc_11);
+	
+	// Alice sends a voice message
+	let (alice_new_pfs_key_7, mdc_12, alice_msg_ciphertext_3) = send_msg((content_type::VOICE, None, Some(&vec![1,3,5,7,9,42])), &bob_pk_kyber, &alice_sk_sig, &alice_new_pfs_key_6).unwrap();
+	
+	// Bob receives it
+	let ((recv_content_type, recv_text, recv_bytes), bob_new_pfs_key_7, mdc_13) = parse_msg(&alice_msg_ciphertext_3, &bob_sk_kyber, Some(&alice_pk_sig), &bob_new_pfs_key_6).unwrap();
+	
+	assert_eq!(recv_content_type, content_type::VOICE);
+	assert!(recv_text.is_none());
+	assert_eq!(recv_bytes, Some(vec![1,3,5,7,9,42]));
+	assert_eq!(alice_new_pfs_key_7, bob_new_pfs_key_7);
+	assert_eq!(mdc_12, mdc_13);
+	assert_ne!(alice_new_pfs_key_6, alice_new_pfs_key_7);
 }
 
 #[test]
