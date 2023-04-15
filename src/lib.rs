@@ -43,6 +43,7 @@ enum Message {
 	Text(TextMessage),
 	Internal(InternalMessage),
 	Voice(VoiceMessage),
+	Picture(PictureMessage),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -78,6 +79,13 @@ struct InternalMessage {
 #[derive(Serialize, Deserialize, Debug)]
 struct VoiceMessage {
 	voice: String,
+	mdc: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct PictureMessage {
+	picture: String,
+	description: String,
 	mdc: String,
 }
 
@@ -256,6 +264,11 @@ pub fn parse_msg(msg_ciphertext: &[u8], own_seckey_kyber: &[u8], remote_pubkey_s
 			if msg_bytes.is_err() { error!("voice message data invalid"); }
 			((content_type::VOICE, None::<String>, Some(msg_bytes.unwrap())), msg.mdc)
 		},
+		Picture(msg) => {
+			let msg_bytes = decode(&msg.picture);
+			if msg_bytes.is_err() { error!("picture data invalid"); }
+			((content_type::PICTURE, Some(msg.description), Some(msg_bytes.unwrap())), msg.mdc)
+		},
 		_ => error!("message type not known or unexpected init message")
 	};
 	
@@ -293,6 +306,18 @@ pub fn send_msg((msg_type, msg_text, msg_data): (u8, Option<&str>, Option<&[u8]>
 				mdc: mdc.clone()
 			} )
 		},
+		content_type::PICTURE => {
+			if msg_data.is_none() { error!("no picture data was provided"); }
+			let description = match msg_text {
+				Some(text) => text,
+				None => ""
+			};
+			Message::Picture( PictureMessage {
+				picture: encode(&msg_data.unwrap()),
+				description: msg_text.unwrap().to_string(),
+				mdc: mdc.clone()
+			} )
+		}
 		_ => error!("requested content type not implemented")
 	};
 	
