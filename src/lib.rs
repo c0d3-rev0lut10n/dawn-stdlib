@@ -314,7 +314,7 @@ pub fn send_msg((msg_type, msg_text, msg_data): (u8, Option<&str>, Option<&[u8]>
 			};
 			Message::Picture( PictureMessage {
 				picture: encode(&msg_data.unwrap()),
-				description: msg_text.unwrap().to_string(),
+				description: description.to_string(),
 				mdc: mdc.clone()
 			} )
 		}
