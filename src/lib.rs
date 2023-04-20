@@ -19,6 +19,7 @@
 use dawn_crypto::*;
 use serde::{Serialize, Deserialize};
 use hex::{encode, decode};
+use base64::{Engine as _, engine::general_purpose::STANDARD_NO_PAD as BASE64};
 use crate::Message::*;
 
 // re-exports that can be directly used by the Dawn client
@@ -260,12 +261,12 @@ pub fn parse_msg(msg_ciphertext: &[u8], own_seckey_kyber: &[u8], remote_pubkey_s
 		Text(msg) => ((content_type::TEXT, Some(msg.text), None::<Vec<u8>>), msg.mdc),
 		Internal(msg) => ((content_type::INTERNAL, Some(msg.event_data), None), msg.mdc),
 		Voice(msg) => {
-			let msg_bytes = decode(&msg.voice);
+			let msg_bytes = BASE64.decode(&msg.voice);
 			if msg_bytes.is_err() { error!("voice message data invalid"); }
 			((content_type::VOICE, None::<String>, Some(msg_bytes.unwrap())), msg.mdc)
 		},
 		Picture(msg) => {
-			let msg_bytes = decode(&msg.picture);
+			let msg_bytes = BASE64.decode(&msg.picture);
 			if msg_bytes.is_err() { error!("picture data invalid"); }
 			((content_type::PICTURE, Some(msg.description), Some(msg_bytes.unwrap())), msg.mdc)
 		},
@@ -295,14 +296,14 @@ pub fn send_msg((msg_type, msg_text, msg_data): (u8, Option<&str>, Option<&[u8]>
 			if msg_data.is_none() { error!("missing event data"); }
 			Message::Internal( InternalMessage {
 				event: event_id.unwrap(),
-				event_data: encode(&msg_data.unwrap()),
+				event_data: BASE64.encode(&msg_data.unwrap()),
 				mdc: mdc.clone()
 			} )
 		},
 		content_type::VOICE => {
 			if msg_data.is_none() { error!("no voice data was provided"); }
 			Message::Voice( VoiceMessage {
-				voice: encode(&msg_data.unwrap()),
+				voice: BASE64.encode(&msg_data.unwrap()),
 				mdc: mdc.clone()
 			} )
 		},
@@ -313,7 +314,7 @@ pub fn send_msg((msg_type, msg_text, msg_data): (u8, Option<&str>, Option<&[u8]>
 				None => ""
 			};
 			Message::Picture( PictureMessage {
-				picture: encode(&msg_data.unwrap()),
+				picture: BASE64.encode(&msg_data.unwrap()),
 				description: description.to_string(),
 				mdc: mdc.clone()
 			} )
