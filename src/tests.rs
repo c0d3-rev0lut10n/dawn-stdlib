@@ -47,6 +47,11 @@ fn test_init_and_messaging() {
 	// Bob accepts the init request
 	let (bob_new_pfs_key_2, (bob_pk_kyber, bob_sk_kyber), mdc_2, init_accept_ciphertext) = accept_init_request(&bob_pk_sig, &bob_sk_sig, &recv_alice_pk_kyber, &new_pfs_key).unwrap();
 	
+	// Check security number derivation
+	let security_number = derive_security_number(&alice_pk_kyber, &bob_pk_kyber);
+	assert_eq!(security_number.len(), 64);
+	println!("Security number: {}", security_number);
+	
 	// Alice happily receives the accept message
 	let (recv_bob_pk_kyber, recv_bob_pk_sig, alice_new_pfs_key_2, mdc_3) = parse_init_response(&init_accept_ciphertext, &alice_sk_kyber, &new_pfs_key).unwrap();
 	
