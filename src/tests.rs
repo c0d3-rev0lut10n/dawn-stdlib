@@ -119,6 +119,19 @@ fn test_init_and_messaging() {
 	assert_eq!(alice_new_pfs_key_7, bob_new_pfs_key_7);
 	assert_eq!(mdc_12, mdc_13);
 	assert_ne!(alice_new_pfs_key_6, alice_new_pfs_key_7);
+	
+	// Bob sends a picture
+	let (bob_new_pfs_key_8, mdc_14, bob_msg_ciphertext_3) = send_msg((content_type::PICTURE, Some("Here is a photo for you!"), Some(&vec![42,42,42,42,7,6,5,4,3,2,1])), &alice_pk_kyber, &bob_sk_sig, &bob_new_pfs_key_7).unwrap();
+	
+	// Alice receives it
+	let ((recv_content_type, recv_text, recv_bytes), alice_new_pfs_key_8, mdc_15) = parse_msg(&bob_msg_ciphertext_3, &alice_sk_kyber, Some(&bob_pk_sig), &alice_new_pfs_key_7).unwrap();
+	
+	assert_eq!(recv_content_type, content_type::PICTURE);
+	assert_eq!(recv_text, Some("Here is a photo for you!".to_string()));
+	assert_eq!(recv_bytes, Some(vec![42,42,42,42,7,6,5,4,3,2,1]));
+	assert_eq!(alice_new_pfs_key_8, bob_new_pfs_key_8);
+	assert_eq!(mdc_14, mdc_15);
+	assert_ne!(alice_new_pfs_key_7, alice_new_pfs_key_8);
 }
 
 #[test]
