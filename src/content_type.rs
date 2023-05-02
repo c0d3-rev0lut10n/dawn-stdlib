@@ -20,3 +20,4 @@ pub const INTERNAL: u8 = 0;
 pub const TEXT: u8 = 1;
 pub const VOICE: u8 = 2;
 pub const PICTURE: u8 = 3;
+pub const LINKED_MEDIA: u8 = 200;

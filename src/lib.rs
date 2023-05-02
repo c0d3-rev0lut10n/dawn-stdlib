@@ -45,6 +45,7 @@ enum Message {
 	Internal(InternalMessage),
 	Voice(VoiceMessage),
 	Picture(PictureMessage),
+	LinkedMedia(LinkedMediaMessage)
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -88,6 +89,15 @@ struct PictureMessage {
 	picture: String,
 	description: String,
 	mdc: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct LinkedMediaMessage {
+	media_type: u8,
+	media_link: String,
+	media_key: String,
+	description: String,
+	mdc: String
 }
 
 // generate an init request using init id, init keys and own signature key
@@ -270,6 +280,7 @@ pub fn parse_msg(msg_ciphertext: &[u8], own_seckey_kyber: &[u8], remote_pubkey_s
 			if msg_bytes.is_err() { error!("picture data invalid"); }
 			((content_type::PICTURE, Some(msg.description), Some(msg_bytes.unwrap())), msg.mdc)
 		},
+		LinkedMedia(msg) => ((content_type::LINKED_MEDIA, Some(msg.media_link + "\n" + &msg.media_key + "\n" + &msg.description), Some(vec![msg.media_type])), msg.mdc),
 		_ => error!("message type not known or unexpected init message")
 	};
 	
@@ -318,7 +329,33 @@ pub fn send_msg((msg_type, msg_text, msg_data): (u8, Option<&str>, Option<&[u8]>
 				description: description.to_string(),
 				mdc: mdc.clone()
 			} )
-		}
+		},
+		content_type::LINKED_MEDIA => {
+			// This data currently has to be provided in a special format:
+			// msg_data is one byte that indicates the media type
+			// msg_text contains the link to the media file in the first line and the encoded symmetric key in the second line. All following lines are interpreted as the description.
+			if msg_data.is_none() { error!("no voice data was provided"); }
+			let msg_data = msg_data.unwrap();
+			if msg_data.len() != 1 { error!(&format!("expected 1 byte to identify media type, got {} bytes", msg_data.len())); }
+			if msg_text.is_none() { error!("no link was provided"); }
+			let mut text_data = msg_text.unwrap().lines();
+			let media_link = text_data.next().unwrap();
+			let media_key = match text_data.next() {
+				Some(key) => key,
+				None => { error!("no media key was provided"); }
+			};
+			let mut description = String::new();
+			for line in text_data {
+				description += line;
+			}
+			Message::LinkedMedia( LinkedMediaMessage {
+				media_type: msg_data[0],
+				media_link: media_link.to_string(),
+				media_key: media_key.to_string(),
+				description: description,
+				mdc: mdc.clone()
+			} )
+		},
 		_ => error!("requested content type not implemented")
 	};
 	
