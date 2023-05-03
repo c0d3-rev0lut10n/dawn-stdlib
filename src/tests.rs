@@ -132,6 +132,23 @@ fn test_init_and_messaging() {
 	assert_eq!(alice_new_pfs_key_8, bob_new_pfs_key_8);
 	assert_eq!(mdc_14, mdc_15);
 	assert_ne!(alice_new_pfs_key_7, alice_new_pfs_key_8);
+	
+	// Alice sends a large media file (using LinkedMediaMessage)
+	let link = "https://contentserver.dawn-privacy.org/f/42";
+	let key = "42424242";
+	let comment = "This is a test file!\nThe comment can use multiple lines just like a normal message!\nPretty neat, right? :)";
+	let msg_string = link.to_string() + "\n" + key + "\n" + comment;
+	let (alice_new_pfs_key_9, mdc_16, alice_msg_ciphertext_4) = send_msg((content_type::LINKED_MEDIA, Some(&msg_string), Some(&vec![42])), &bob_pk_kyber, &alice_sk_sig, &alice_new_pfs_key_8).unwrap();
+	
+	// Bob receives it
+	let ((recv_content_type, recv_text, recv_bytes), bob_new_pfs_key_9, mdc_17) = parse_msg(&alice_msg_ciphertext_4, &bob_sk_kyber, Some(&alice_pk_sig), &bob_new_pfs_key_8).unwrap();
+	
+	assert_eq!(recv_content_type, content_type::LINKED_MEDIA);
+	assert_eq!(recv_text, Some(link.to_string() + "\n" + key + "\n" + comment));
+	assert_eq!(recv_bytes, Some(vec![42]));
+	assert_eq!(alice_new_pfs_key_9, bob_new_pfs_key_9);
+	assert_eq!(mdc_16, mdc_17);
+	assert_ne!(alice_new_pfs_key_8, alice_new_pfs_key_9);
 }
 
 #[test]
