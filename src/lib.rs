@@ -347,7 +347,9 @@ pub fn send_msg((msg_type, msg_text, msg_data): (u8, Option<&str>, Option<&[u8]>
 			let mut description = String::new();
 			for line in text_data {
 				description += line;
+				description += "\n";
 			}
+			description.pop();
 			Message::LinkedMedia( LinkedMediaMessage {
 				media_type: msg_data[0],
 				media_link: media_link.to_string(),
