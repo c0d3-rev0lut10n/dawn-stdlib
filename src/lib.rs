@@ -23,7 +23,7 @@ use base64::{Engine as _, engine::general_purpose::STANDARD_NO_PAD as BASE64};
 use crate::Message::*;
 
 // re-exports that can be directly used by the Dawn client
-pub use dawn_crypto::{init as init_crypto, sign_keygen, id_gen, get_temp_id, get_next_id, derive_security_number};
+pub use dawn_crypto::{init as init_crypto, sign_keygen, id_gen, get_temp_id, get_next_id, derive_security_number, sym_key_gen};
 
 mod content_type;
 
