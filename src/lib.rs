@@ -375,6 +375,16 @@ pub fn send_msg((msg_type, msg_text, msg_data): (u8, Option<&str>, Option<&[u8]>
 	Ok((new_pfs_key, mdc, msg_ciphertext))
 }
 
+// This encrypts a file using a random key and returns the ciphertext and key
+pub fn encrypt_file(file: &[u8]) -> Result<(Vec<u8>, Vec<u8>), String> {
+	let key = sym_key_gen();
+	let ciphertext = match encrypt_data(file, &key) {
+		Ok(res) => res,
+		Err(err) => { error!(&format!("file encryption failed: {}", err)); }
+	};
+	Ok((ciphertext, key))
+}
+
 // this generates a handle
 pub fn gen_handle(init_pubkey_kyber: Vec<u8>, init_pubkey_curve: Vec<u8>, name: &str) -> Vec<u8> {
 	let init_pubkey_kyber_string = encode(&init_pubkey_kyber);
