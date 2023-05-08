@@ -385,6 +385,16 @@ pub fn encrypt_file(file: &[u8]) -> Result<(Vec<u8>, Vec<u8>), String> {
 	Ok((ciphertext, key))
 }
 
+// This decrypts a file using the symmetric key and returns the cleartext file
+pub fn decrypt_file(ciphertext: &[u8], key: &[u8]) -> Result<Vec<u8>, String> {
+	let file = match decrypt_data(ciphertext, key) {
+		Ok(res) => res,
+		Err(err) => { error!(&format!("file decryption failed: {}", err)); }
+	};
+	Ok(file)
+}
+
+
 // this generates a handle
 pub fn gen_handle(init_pubkey_kyber: Vec<u8>, init_pubkey_curve: Vec<u8>, name: &str) -> Vec<u8> {
 	let init_pubkey_kyber_string = encode(&init_pubkey_kyber);
