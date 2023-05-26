@@ -162,3 +162,8 @@ fn test_handle_parsing() {
 	assert_eq!(init_pk_curve, parsed_init_pk_curve);
 	assert_eq!(name, parsed_name);
 }
+
+#[test]
+fn test_gen_init_request() {
+	assert!(gen_init_request(&vec![], &vec![], &vec![], &vec![], "", "").is_err());
+}
