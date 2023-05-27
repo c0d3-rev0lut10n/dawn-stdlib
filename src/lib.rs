@@ -118,6 +118,8 @@ pub fn gen_init_request(
 		String, // message detail code
 		Vec<u8> // encrypted message
 	), String> {
+	// check input
+	if name.len() == 0 { error!("name must not be empty"); }
 	
 	let ((own_pubkey_kyber, own_seckey_kyber), (own_pubkey_curve, own_seckey_curve), id) = init();
 	let pfs_key = match get_curve_secret(&own_seckey_curve, &remote_pubkey_curve) {
