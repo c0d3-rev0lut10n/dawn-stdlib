@@ -166,4 +166,10 @@ fn test_handle_parsing() {
 #[test]
 fn test_gen_init_request() {
 	assert!(gen_init_request(&vec![], &vec![], &vec![], &vec![], "", "").is_err());
+	let name = "alice";
+	let comment = "\nhi\n\\{}[]{{}\"";
+	let (bob_init_pk_curve, bob_init_sk_curve) = curve_keygen();
+	let (bob_init_pk_kyber, bob_init_sk_kyber) = kyber_keygen();
+	let (alice_pk_sig, alice_sk_sig) = sign_keygen();
+	assert!(gen_init_request(&bob_init_pk_kyber, &bob_init_pk_curve, &alice_pk_sig, &alice_sk_sig, "", comment).is_err());
 }
