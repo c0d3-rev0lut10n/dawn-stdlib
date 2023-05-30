@@ -30,7 +30,7 @@ fn test_init_and_messaging() {
 	let (alice_pk_sig, alice_sk_sig) = sign_keygen();
 	
 	// Alice sends an init request to Bob
-	let ((alice_pk_kyber, alice_sk_kyber), (alice_pk_curve, alice_sk_curve), new_pfs_key, id, mdc, init_request_ciphertext) = gen_init_request(&bob_init_pk_kyber, &bob_init_pk_curve, Some(&alice_pk_sig), Some(&alice_sk_sig), name, comment).unwrap();
+	let ((alice_pk_kyber, alice_sk_kyber), (alice_pk_curve, alice_sk_curve), new_pfs_key, id, mdc, init_request_ciphertext) = gen_init_request(&bob_init_pk_kyber, &bob_init_pk_curve, &alice_pk_sig, &alice_sk_sig, name, comment).unwrap();
 	
 	// Bob's client parses the init request
 	let (recv_id, recv_mdc, recv_alice_pk_kyber, recv_alice_pk_sig, recv_new_pfs_key, recv_name, recv_comment) = parse_init_request(&init_request_ciphertext, &bob_init_sk_kyber, &bob_init_sk_curve).unwrap();
@@ -165,11 +165,11 @@ fn test_handle_parsing() {
 
 #[test]
 fn test_gen_init_request() {
-	assert!(gen_init_request(&vec![], &vec![], Some(&vec![]), Some(&vec![]), "", "").is_err());
+	assert!(gen_init_request(&vec![], &vec![], &vec![], &vec![], "", "").is_err());
 	let name = "alice";
 	let comment = "\nhi\n\\{}[]{{}\"";
 	let (bob_init_pk_curve, bob_init_sk_curve) = curve_keygen();
 	let (bob_init_pk_kyber, bob_init_sk_kyber) = kyber_keygen();
 	let (alice_pk_sig, alice_sk_sig) = sign_keygen();
-	assert!(gen_init_request(&bob_init_pk_kyber, &bob_init_pk_curve, Some(&alice_pk_sig), Some(&alice_sk_sig), "", comment).is_err());
+	assert!(gen_init_request(&bob_init_pk_kyber, &bob_init_pk_curve, &alice_pk_sig, &alice_sk_sig, "", comment).is_err());
 }

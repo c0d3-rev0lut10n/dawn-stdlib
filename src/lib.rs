@@ -105,8 +105,8 @@ struct LinkedMediaMessage {
 pub fn gen_init_request(
 	remote_pubkey_kyber: &[u8],
 	remote_pubkey_curve: &[u8],
-	own_pubkey_sig: Option<&[u8]>,
-	own_seckey_sig: Option<&[u8]>,
+	own_pubkey_sig: &[u8],
+	own_seckey_sig: &[u8],
 	name: &str,
 	comment: &str
 ) -> Result<
@@ -120,8 +120,6 @@ pub fn gen_init_request(
 	), String> {
 	// check input
 	if name.len() == 0 { error!("name must not be empty"); }
-	if own_pubkey_sig.is_none() && own_seckey_sig.is_some() { error!("own_pubkey_sig and own_seckey_sig must both be Some or None at the same time"); }
-	if own_pubkey_sig.is_some() && own_seckey_sig.is_none() { error!("own_pubkey_sig and own_seckey_sig must both be Some or None at the same time"); }
 	
 	let ((own_pubkey_kyber, own_seckey_kyber), (own_pubkey_curve, own_seckey_curve), id) = init();
 	let pfs_key = match get_curve_secret(&own_seckey_curve, &remote_pubkey_curve) {
@@ -130,21 +128,12 @@ pub fn gen_init_request(
 	};
 	let mdc = mdc_gen();
 	
-	// either send the signature public key or a placeholder depending on input
-	let sign;
-	if own_pubkey_sig.is_none() {
-		sign = "none".to_string();
-	}
-	else {
-		sign = encode(own_pubkey_sig.unwrap());
-	}
-	
 	// generate message
 	let message_data = Message::InitRequest( InitRequest {
 		id: id.to_string(),
 		mdc: mdc.to_string(),
 		kyber: encode(own_pubkey_kyber.clone()),
-		sign: sign,
+		sign: encode(own_pubkey_sig),
 		name: name.to_string(),
 		comment: comment.to_string()
 	} );
@@ -154,7 +143,7 @@ pub fn gen_init_request(
 	};
 	
 	// encrypt using derived pfs key
-	let (mut msg_ciphertext, new_pfs_key) = match encrypt_msg(remote_pubkey_kyber, own_seckey_sig, &pfs_key, &message) {
+	let (mut msg_ciphertext, new_pfs_key) = match encrypt_msg(remote_pubkey_kyber, Some(own_seckey_sig), &pfs_key, &message) {
 		Ok(res) => res,
 		Err(err) => return Err(err)
 	};
