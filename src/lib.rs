@@ -198,26 +198,14 @@ pub fn parse_init_request(request_body: &[u8], own_seckey_kyber: &[u8], own_seck
 
 // accept init request
 // returns the new PFS key, own kyber keypair, message detail code and ciphertext
-pub fn accept_init_request(own_pubkey_sig: Option<&[u8]>, own_seckey_sig: Option<&[u8]>, remote_pubkey_kyber: &[u8], pfs_key: &[u8]) -> Result<(Vec<u8>, (Vec<u8>, Vec<u8>), String, Vec<u8>), String> {
-	// check input
-	if own_pubkey_sig.is_none() && own_seckey_sig.is_some() { error!("own_pubkey_sig and own_seckey_sig must both be Some or None at the same time"); }
-	if own_pubkey_sig.is_some() && own_seckey_sig.is_none() { error!("own_pubkey_sig and own_seckey_sig must both be Some or None at the same time"); }
+pub fn accept_init_request(own_pubkey_sig: &[u8], own_seckey_sig: &[u8], remote_pubkey_kyber: &[u8], pfs_key: &[u8]) -> Result<(Vec<u8>, (Vec<u8>, Vec<u8>), String, Vec<u8>), String> {
 	
 	let mdc = mdc_gen();
 	let (own_pubkey_kyber, own_seckey_kyber) = kyber_keygen();
 	
-	// either send the signature public key or a placeholder depending on input
-	let sign;
-	if own_pubkey_sig.is_none() {
-		sign = "none".to_string();
-	}
-	else {
-		sign = encode(own_pubkey_sig.unwrap());
-	}
-	
 	let message_data = Message::InitAccept( InitAccept {
 		kyber: encode(&own_pubkey_kyber),
-		sign: sign,
+		sign: encode(&own_pubkey_sig),
 		mdc: mdc.clone(),
 	} );
 	let message = match serde_json::to_string(&message_data) {
@@ -226,7 +214,7 @@ pub fn accept_init_request(own_pubkey_sig: Option<&[u8]>, own_seckey_sig: Option
 	};
 	
 	// encrypt message
-	let (msg_ciphertext, new_pfs_key) = match encrypt_msg(remote_pubkey_kyber, own_seckey_sig, pfs_key, &message) {
+	let (msg_ciphertext, new_pfs_key) = match encrypt_msg(remote_pubkey_kyber, Some(own_seckey_sig), pfs_key, &message) {
 		Ok(res) => res,
 		Err(err) => return Err(err)
 	};
