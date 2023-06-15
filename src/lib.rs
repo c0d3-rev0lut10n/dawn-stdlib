@@ -26,6 +26,7 @@ use crate::Message::*;
 pub use dawn_crypto::{init as init_crypto, sign_keygen, id_gen, get_temp_id, get_custom_temp_id, get_next_id, derive_security_number, sym_key_gen};
 
 mod content_type;
+mod event;
 
 #[cfg(test)]
 mod tests;
