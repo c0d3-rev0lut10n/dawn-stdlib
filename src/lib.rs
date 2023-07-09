@@ -239,7 +239,7 @@ pub fn parse_init_request(request_body: &[u8], own_seckey_kyber: &[u8], own_seck
 
 // accept init request
 // returns the new PFS key, own kyber keypair, message detail code and ciphertext
-pub fn accept_init_request(own_pubkey_sig: &[u8], own_seckey_sig: &[u8], remote_pubkey_kyber: &[u8], pfs_key: &[u8]) -> Result<(Vec<u8>, (Vec<u8>, Vec<u8>), String, Vec<u8>), String> {
+pub fn accept_init_request(own_pubkey_sig: &[u8], own_seckey_sig: &[u8], remote_pubkey_kyber: &[u8], pfs_key: &[u8], pfs_salt: &[u8]) -> Result<(Vec<u8>, (Vec<u8>, Vec<u8>), String, Vec<u8>), String> {
 	
 	let mdc = mdc_gen();
 	let (own_pubkey_kyber, own_seckey_kyber) = kyber_keygen();
@@ -255,7 +255,7 @@ pub fn accept_init_request(own_pubkey_sig: &[u8], own_seckey_sig: &[u8], remote_
 	};
 	
 	// encrypt message
-	let (msg_ciphertext, new_pfs_key) = match encrypt_msg(remote_pubkey_kyber, Some(own_seckey_sig), pfs_key, &message) {
+	let (msg_ciphertext, new_pfs_key) = match encrypt_msg(remote_pubkey_kyber, Some(own_seckey_sig), pfs_key, pfs_salt, &message) {
 		Ok(res) => res,
 		Err(err) => return Err(err)
 	};
