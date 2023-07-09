@@ -129,7 +129,7 @@ pub fn gen_init_request(
 	let (
 		(own_pubkey_kyber, own_seckey_kyber),
 		(own_pubkey_curve, own_seckey_curve),
-		(own_pubkey_kyber_for_salt, own_seckey_kyber_for_salt),
+		_,
 		(mut own_pubkey_curve_for_salt, own_seckey_curve_for_salt),
 		id
 	) = init();
