@@ -182,19 +182,34 @@ pub fn gen_init_request(
 }
 
 // parse an init request
-// returns id, mdc, keys, name and comment
-pub fn parse_init_request(request_body: &[u8], own_seckey_kyber: &[u8], own_seckey_curve: &[u8]) -> Result<(String, String, Vec<u8>, Vec<u8>, Vec<u8>, String, String), String> {
+// returns id, id salt, mdc, keys, pfs salt, name and comment
+pub fn parse_init_request(request_body: &[u8], own_seckey_kyber: &[u8], own_seckey_curve: &[u8], own_seckey_kyber_for_salt: &[u8], own_seckey_curve_for_salt: &[u8]) -> Result<(String, Vec<u8>, String, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, String, String), String> {
 	// check length
-	if request_body.len() <= 32 { error!("request was too short!"); }
+	if request_body.len() <= 32*2 + 1568 { error!("request was too short!"); }
 	
-	let (remote_pubkey_curve, ciphertext) = request_body.split_at(32);
+	let (remote_pubkey_curve, request_rest) = request_body.split_at(32);
+	let (remote_pubkey_curve_for_salt, request_rest) = request_rest.split_at(32);
+	let (remote_kyber_ciphertext_for_salt, ciphertext) = request_rest.split_at(1568);
+	
 	let pfs_key = match get_curve_secret(own_seckey_curve, remote_pubkey_curve) {
 		Ok(res) => res,
 		Err(err) => return Err(err)
 	};
+	let derive_salt_curve = match get_curve_secret(&own_seckey_curve_for_salt, &remote_pubkey_curve_for_salt) {
+		Ok(res) => res,
+		Err(err) => return Err(err)
+	};
+	let derive_salt_kyber = match decrypt_kyber_secret(&remote_kyber_ciphertext_for_salt, &own_seckey_kyber_for_salt) {
+		Ok(res) => res,
+		Err(_) => { error!("failed to decrypt kyber secret for salt derivation"); }
+	};
+	let (pfs_salt, id_salt) = match derive_salts(&derive_salt_curve, &derive_salt_kyber) {
+		Ok(res) => res,
+		Err(_) => { error!("failed to derive salts"); }
+	};
 	
 	// decrypt
-	let (msg_content, new_pfs_key, _) = match decrypt_msg(own_seckey_kyber, None, &pfs_key, ciphertext) {
+	let (msg_content, new_pfs_key, _) = match decrypt_msg(own_seckey_kyber, None, &pfs_key, &pfs_salt, ciphertext) {
 		Ok(res) => res,
 		Err(err) => return Err(err)
 	};
@@ -219,7 +234,7 @@ pub fn parse_init_request(request_body: &[u8], own_seckey_kyber: &[u8], own_seck
 		Err(_) => error!("remote signature pubkey invalid")
 	};
 	
-	Ok((init_request.id, init_request.mdc, remote_pubkey_kyber, remote_pubkey_sig, new_pfs_key, init_request.name, init_request.comment))
+	Ok((init_request.id, id_salt, init_request.mdc, remote_pubkey_kyber, remote_pubkey_sig, new_pfs_key, pfs_salt, init_request.name, init_request.comment))
 }
 
 // accept init request
