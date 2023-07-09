@@ -446,16 +446,17 @@ pub fn decrypt_file(ciphertext: &[u8], key: &[u8]) -> Result<Vec<u8>, String> {
 
 
 // this generates a handle
-pub fn gen_handle(init_pubkey_kyber: Vec<u8>, init_pubkey_curve: Vec<u8>, init_pubkey_curve_for_salt: Vec<u8>, name: &str) -> Vec<u8> {
+pub fn gen_handle(init_pubkey_kyber: Vec<u8>, init_pubkey_curve: Vec<u8>, init_pubkey_kyber_for_salt: &[u8], init_pubkey_curve_for_salt: Vec<u8>, name: &str) -> Vec<u8> {
 	let init_pubkey_kyber_string = encode(&init_pubkey_kyber);
 	let init_pubkey_curve_string = encode(&init_pubkey_curve);
+	let init_pubkey_kyber_for_salt_string = encode(&init_pubkey_kyber_for_salt);
 	let init_pubkey_curve_for_salt_string = encode(&init_pubkey_curve_for_salt);
-	let handle_content = format!("{}\n{}\n{}\n{}", init_pubkey_kyber_string, init_pubkey_curve_string, init_pubkey_curve_for_salt_string, name);
+	let handle_content = format!("{}\n{}\n{}\n{}\n{}", init_pubkey_kyber_string, init_pubkey_curve_string, init_pubkey_kyber_for_salt_string, init_pubkey_curve_for_salt_string, name);
 	handle_content.as_bytes().to_vec()
 }
 
 // this parses a handle
-pub fn parse_handle(handle_content: Vec<u8>) -> Result<(Vec<u8>, Vec<u8>, String), String> {
+pub fn parse_handle(handle_content: Vec<u8>) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, String), String> {
 	let handle_string = match String::from_utf8(handle_content) {
 		Ok(res) => res,
 		Err(_) => error!("handle content is not valid UTF-8!")
@@ -476,6 +477,13 @@ pub fn parse_handle(handle_content: Vec<u8>) -> Result<(Vec<u8>, Vec<u8>, String
 		},
 		None => error!("handle format invalid!")
 	};
+	let init_pubkey_kyber_for_salt = match information.next() {
+		Some(res) => match decode(res) {
+			Ok(bytes) => bytes.to_vec(),
+			Err(_) => error!("handle format invalid!")
+		},
+		None => error!("handle format invalid!")
+	};
 	let init_pubkey_curve_for_salt = match information.next() {
 		Some(res) => match decode(res) {
 			Ok(bytes) => bytes.to_vec(),
@@ -487,5 +495,5 @@ pub fn parse_handle(handle_content: Vec<u8>) -> Result<(Vec<u8>, Vec<u8>, String
 		Some(res) => res.to_string(),
 		None => error!("handle format invalid!")
 	};
-	Ok((init_pubkey_kyber, init_pubkey_curve, init_pubkey_curve_for_salt, name))
+	Ok((init_pubkey_kyber, init_pubkey_curve, init_pubkey_kyber_for_salt, init_pubkey_curve_for_salt, name))
 }
