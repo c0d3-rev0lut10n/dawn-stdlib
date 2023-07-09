@@ -164,7 +164,7 @@ fn test_handle_parsing() {
 	let init_pk_kyber_for_salt = vec![42,42,0,0,0];
 	let init_pk_curve_for_salt = vec![0,0,3,0];
 	let name = "Test 42";
-	let handle = gen_handle(init_pk_kyber.clone(), init_pk_curve.clone(), &init_pk_kyber_for_salt, init_pk_curve_for_salt.clone(), name);
+	let handle = gen_handle(&init_pk_kyber, &init_pk_curve, &init_pk_kyber_for_salt, &init_pk_curve_for_salt, name);
 	let (parsed_init_pk_kyber, parsed_init_pk_curve, parsed_init_pk_kyber_for_salt, parsed_init_pk_curve_for_salt, parsed_name) = parse_handle(handle).unwrap();
 	assert_eq!(init_pk_kyber, parsed_init_pk_kyber);
 	assert_eq!(init_pk_curve, parsed_init_pk_curve);

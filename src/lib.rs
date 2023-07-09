@@ -446,7 +446,7 @@ pub fn decrypt_file(ciphertext: &[u8], key: &[u8]) -> Result<Vec<u8>, String> {
 
 
 // this generates a handle
-pub fn gen_handle(init_pubkey_kyber: Vec<u8>, init_pubkey_curve: Vec<u8>, init_pubkey_kyber_for_salt: &[u8], init_pubkey_curve_for_salt: Vec<u8>, name: &str) -> Vec<u8> {
+pub fn gen_handle(init_pubkey_kyber: &[u8], init_pubkey_curve: &[u8], init_pubkey_kyber_for_salt: &[u8], init_pubkey_curve_for_salt: &[u8], name: &str) -> Vec<u8> {
 	let init_pubkey_kyber_string = encode(&init_pubkey_kyber);
 	let init_pubkey_curve_string = encode(&init_pubkey_curve);
 	let init_pubkey_kyber_for_salt_string = encode(&init_pubkey_kyber_for_salt);
