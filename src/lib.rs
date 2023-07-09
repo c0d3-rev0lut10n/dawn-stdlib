@@ -266,9 +266,9 @@ pub fn accept_init_request(own_pubkey_sig: &[u8], own_seckey_sig: &[u8], remote_
 // parse init response message (expected to be the first message on a new ID after an init request was sent)
 // As of now, only accept messages are sent. If the user rejects the request, no message is sent. Therefore, we only try to parse init accept messages.
 // returns remote kyber and signature pubkeys, the new PFS key and message detail code
-pub fn parse_init_response(msg_ciphertext: &[u8], own_seckey_kyber: &[u8], remote_pubkey_sig: Option<&[u8]>, pfs_key: &[u8]) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>, String), String> {
+pub fn parse_init_response(msg_ciphertext: &[u8], own_seckey_kyber: &[u8], remote_pubkey_sig: Option<&[u8]>, pfs_key: &[u8], pfs_salt: &[u8]) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>, String), String> {
 	// decrypt
-	let (msg_content, new_pfs_key, warning) = match decrypt_msg(own_seckey_kyber, remote_pubkey_sig, pfs_key, msg_ciphertext) {
+	let (msg_content, new_pfs_key, warning) = match decrypt_msg(own_seckey_kyber, remote_pubkey_sig, pfs_key, pfs_salt, msg_ciphertext) {
 		Ok(res) => res,
 		Err(err) => return Err(err)
 	};
@@ -301,9 +301,9 @@ pub fn parse_init_response(msg_ciphertext: &[u8], own_seckey_kyber: &[u8], remot
 
 // parse a received message
 // returns content type, content (can be a string, a Vec or both depending on the message type), new PFS key and message detail code
-pub fn parse_msg(msg_ciphertext: &[u8], own_seckey_kyber: &[u8], remote_pubkey_sig: Option<&[u8]>, pfs_key: &[u8]) -> Result<((u8, Option<String>, Option<Vec<u8>>), Vec<u8>, String), String> {
+pub fn parse_msg(msg_ciphertext: &[u8], own_seckey_kyber: &[u8], remote_pubkey_sig: Option<&[u8]>, pfs_key: &[u8], pfs_salt: &[u8]) -> Result<((u8, Option<String>, Option<Vec<u8>>), Vec<u8>, String), String> {
 	// decrypt
-	let (msg_content, new_pfs_key, warning) = match decrypt_msg(own_seckey_kyber, remote_pubkey_sig, pfs_key, msg_ciphertext) {
+	let (msg_content, new_pfs_key, warning) = match decrypt_msg(own_seckey_kyber, remote_pubkey_sig, pfs_key, pfs_salt, msg_ciphertext) {
 		Ok(res) => res,
 		Err(_) => error!("decryption failed")
 	};
@@ -339,7 +339,7 @@ pub fn parse_msg(msg_ciphertext: &[u8], own_seckey_kyber: &[u8], remote_pubkey_s
 
 // send a message
 // returns new PFS key, message detail code and ciphertext
-pub fn send_msg((msg_type, msg_text, msg_data): (u8, Option<&str>, Option<&[u8]>), remote_pubkey_kyber: &[u8], own_seckey_sig: Option<&[u8]>, pfs_key: &[u8]) -> Result<(Vec<u8>, String, Vec<u8>), String> {
+pub fn send_msg((msg_type, msg_text, msg_data): (u8, Option<&str>, Option<&[u8]>), remote_pubkey_kyber: &[u8], own_seckey_sig: Option<&[u8]>, pfs_key: &[u8], pfs_salt: &[u8]) -> Result<(Vec<u8>, String, Vec<u8>), String> {
 	// create message
 	let mdc = mdc_gen();
 	let message_data: Message = match msg_type {
@@ -417,7 +417,7 @@ pub fn send_msg((msg_type, msg_text, msg_data): (u8, Option<&str>, Option<&[u8]>
 	};
 	
 	// encrypt message
-	let (msg_ciphertext, new_pfs_key) = match encrypt_msg(remote_pubkey_kyber, own_seckey_sig, pfs_key, &message) {
+	let (msg_ciphertext, new_pfs_key) = match encrypt_msg(remote_pubkey_kyber, own_seckey_sig, pfs_key, pfs_salt, &message) {
 		Ok(res) => res,
 		Err(err) => return Err(err)
 	};
