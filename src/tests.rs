@@ -161,13 +161,15 @@ fn test_init_and_messaging() {
 fn test_handle_parsing() {
 	let init_pk_kyber = vec![255,0,255,1,2,3,4,5];
 	let init_pk_curve = vec![5,5,6];
+	let init_pk_curve_pfs_2 = vec![42,5,5,5];
 	let init_pk_kyber_for_salt = vec![42,42,0,0,0];
 	let init_pk_curve_for_salt = vec![0,0,3,0];
 	let name = "Test 42";
-	let handle = gen_handle(&init_pk_kyber, &init_pk_curve, &init_pk_kyber_for_salt, &init_pk_curve_for_salt, name);
-	let (parsed_init_pk_kyber, parsed_init_pk_curve, parsed_init_pk_kyber_for_salt, parsed_init_pk_curve_for_salt, parsed_name) = parse_handle(handle).unwrap();
+	let handle = gen_handle(&init_pk_kyber, &init_pk_curve, &init_pk_curve_pfs_2, &init_pk_kyber_for_salt, &init_pk_curve_for_salt, name);
+	let (parsed_init_pk_kyber, parsed_init_pk_curve, parsed_init_pk_curve_pfs_2, parsed_init_pk_kyber_for_salt, parsed_init_pk_curve_for_salt, parsed_name) = parse_handle(handle).unwrap();
 	assert_eq!(init_pk_kyber, parsed_init_pk_kyber);
 	assert_eq!(init_pk_curve, parsed_init_pk_curve);
+	assert_eq!(init_pk_curve_pfs_2, parsed_init_pk_curve_pfs_2);
 	assert_eq!(init_pk_kyber_for_salt, parsed_init_pk_kyber_for_salt);
 	assert_eq!(init_pk_curve_for_salt, parsed_init_pk_curve_for_salt);
 	assert_eq!(name, parsed_name);
