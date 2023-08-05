@@ -54,6 +54,7 @@ struct InitRequest {
 	id: String,
 	mdc: String,
 	kyber: String,
+	curve_for_pfs: String,
 	sign: String,
 	name: String,
 	comment: String
@@ -107,6 +108,7 @@ pub fn gen_init_request(
 	remote_pubkey_kyber: &[u8],
 	remote_pubkey_kyber_for_salt: &[u8],
 	remote_pubkey_curve: &[u8],
+	remote_pubkey_curve_pfs_2: &[u8],
 	remote_pubkey_curve_for_salt: &[u8],
 	own_pubkey_sig: &[u8],
 	own_seckey_sig: &[u8],
@@ -116,7 +118,8 @@ pub fn gen_init_request(
 	(
 		(Vec<u8>, Vec<u8>), // own kyber keypair
 		(Vec<u8>, Vec<u8>), // own curve keypair
-		Vec<u8>, // pfs key
+		Vec<u8>, // own pfs key
+		Vec<u8>, // remote pfs key
 		Vec<u8>, // pfs salt
 		String, // id
 		Vec<u8>, // id salt
@@ -133,8 +136,13 @@ pub fn gen_init_request(
 		(mut own_pubkey_curve_for_salt, own_seckey_curve_for_salt),
 		id
 	) = init();
+	let (own_pubkey_curve_pfs_2, own_seckey_curve_pfs_2) = curve_keygen();
 	
-	let pfs_key = match get_curve_secret(&own_seckey_curve, &remote_pubkey_curve) {
+	let own_pfs_key = match get_curve_secret(&own_seckey_curve, &remote_pubkey_curve) {
+		Ok(res) => res,
+		Err(err) => return Err(err)
+	};
+	let remote_pfs_key = match get_curve_secret(&own_seckey_curve_pfs_2, &remote_pubkey_curve_pfs_2) {
 		Ok(res) => res,
 		Err(err) => return Err(err)
 	};
@@ -157,6 +165,7 @@ pub fn gen_init_request(
 		id: id.to_string(),
 		mdc: mdc.to_string(),
 		kyber: encode(own_pubkey_kyber.clone()),
+		curve_for_pfs: encode(own_pubkey_curve_pfs_2), // we can encrypt this key within the message as the remote side doesn't need it to decrypt the message
 		sign: encode(own_pubkey_sig),
 		name: name.to_string(),
 		comment: comment.to_string()
@@ -167,7 +176,7 @@ pub fn gen_init_request(
 	};
 	
 	// encrypt using derived pfs key
-	let (mut msg_ciphertext, new_pfs_key) = match encrypt_msg(remote_pubkey_kyber, Some(own_seckey_sig), &pfs_key, &pfs_salt, &message) {
+	let (mut msg_ciphertext, new_pfs_key) = match encrypt_msg(remote_pubkey_kyber, Some(own_seckey_sig), &own_pfs_key, &pfs_salt, &message) {
 		Ok(res) => res,
 		Err(err) => return Err(err)
 	};
@@ -178,12 +187,12 @@ pub fn gen_init_request(
 	ciphertext.append(&mut derive_salt_kyber_ciphertext);
 	ciphertext.append(&mut msg_ciphertext);
 	
-	Ok(((own_pubkey_kyber, own_seckey_kyber), (own_pubkey_curve, own_seckey_curve), new_pfs_key, pfs_salt, id, id_salt, mdc, ciphertext))
+	Ok(((own_pubkey_kyber, own_seckey_kyber), (own_pubkey_curve, own_seckey_curve), new_pfs_key, remote_pfs_key, pfs_salt, id, id_salt, mdc, ciphertext))
 }
 
 // parse an init request
 // returns id, id salt, mdc, keys, pfs salt, name and comment
-pub fn parse_init_request(request_body: &[u8], own_seckey_kyber: &[u8], own_seckey_curve: &[u8], own_seckey_kyber_for_salt: &[u8], own_seckey_curve_for_salt: &[u8]) -> Result<(String, Vec<u8>, String, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, String, String), String> {
+pub fn parse_init_request(request_body: &[u8], own_seckey_kyber: &[u8], own_seckey_curve: &[u8], own_seckey_curve_pfs_2: &[u8], own_seckey_kyber_for_salt: &[u8], own_seckey_curve_for_salt: &[u8]) -> Result<(String, Vec<u8>, String, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, String, String), String> {
 	// check length
 	if request_body.len() <= 32*2 + 1568 { error!("request was too short!"); }
 	
@@ -191,7 +200,7 @@ pub fn parse_init_request(request_body: &[u8], own_seckey_kyber: &[u8], own_seck
 	let (remote_pubkey_curve_for_salt, request_rest) = request_rest.split_at(32);
 	let (remote_kyber_ciphertext_for_salt, ciphertext) = request_rest.split_at(1568);
 	
-	let pfs_key = match get_curve_secret(own_seckey_curve, remote_pubkey_curve) {
+	let remote_pfs_key = match get_curve_secret(own_seckey_curve, remote_pubkey_curve) {
 		Ok(res) => res,
 		Err(err) => return Err(err)
 	};
@@ -209,7 +218,7 @@ pub fn parse_init_request(request_body: &[u8], own_seckey_kyber: &[u8], own_seck
 	};
 	
 	// decrypt
-	let (msg_content, new_pfs_key, _) = match decrypt_msg(own_seckey_kyber, None, &pfs_key, &pfs_salt, ciphertext) {
+	let (msg_content, new_remote_pfs_key, _) = match decrypt_msg(own_seckey_kyber, None, &remote_pfs_key, &pfs_salt, ciphertext) {
 		Ok(res) => res,
 		Err(err) => return Err(err)
 	};
@@ -229,12 +238,22 @@ pub fn parse_init_request(request_body: &[u8], own_seckey_kyber: &[u8], own_seck
 		Ok(res) => res,
 		Err(_) => error!("remote kyber pubkey invalid")
 	};
+	let remote_pubkey_curve_pfs_2 = match decode(&init_request.curve_for_pfs) {
+		Ok(res) => res,
+		Err(_) => error!("remote curve pubkey invalid")
+	};
 	let remote_pubkey_sig = match decode(&init_request.sign) {
 		Ok(res) => res,
 		Err(_) => error!("remote signature pubkey invalid")
 	};
 	
-	Ok((init_request.id, id_salt, init_request.mdc, remote_pubkey_kyber, remote_pubkey_sig, new_pfs_key, pfs_salt, init_request.name, init_request.comment))
+	// derive own pfs key
+	let own_pfs_key = match get_curve_secret(&own_seckey_curve_pfs_2, &remote_pubkey_curve_pfs_2) {
+		Ok(res) => res,
+		Err(err) => return Err(err)
+	};
+	
+	Ok((init_request.id, id_salt, init_request.mdc, remote_pubkey_kyber, remote_pubkey_sig, own_pfs_key, new_remote_pfs_key, pfs_salt, init_request.name, init_request.comment))
 }
 
 // accept init request
