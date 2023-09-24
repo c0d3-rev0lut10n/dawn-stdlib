@@ -57,7 +57,8 @@ struct InitRequest {
 	curve_for_pfs: String,
 	sign: String,
 	name: String,
-	comment: String
+	comment: String,
+	mdc_seed: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -124,6 +125,7 @@ pub fn gen_init_request(
 		String, // id
 		Vec<u8>, // id salt
 		String, // message detail code
+		String, // message detail code seed
 		Vec<u8> // encrypted message
 	), String> {
 	// check input
@@ -160,6 +162,9 @@ pub fn gen_init_request(
 	};
 	let mdc = mdc_gen();
 	
+	// generate an mdc seed for predictable message detail codes (necessary for subscription-based message transport)
+	let mdc_seed = encode(sym_key_gen());
+	
 	// generate message
 	let message_data = Message::InitRequest( InitRequest {
 		id: id.to_string(),
@@ -168,7 +173,8 @@ pub fn gen_init_request(
 		curve_for_pfs: encode(own_pubkey_curve_pfs_2), // we can encrypt this key within the message as the remote side doesn't need it to decrypt the message
 		sign: encode(own_pubkey_sig),
 		name: name.to_string(),
-		comment: comment.to_string()
+		comment: comment.to_string(),
+		mdc_seed: mdc_seed.to_string()
 	} );
 	let message = match serde_json::to_string(&message_data) {
 		Ok(res) => res,
@@ -187,12 +193,12 @@ pub fn gen_init_request(
 	ciphertext.append(&mut derive_salt_kyber_ciphertext);
 	ciphertext.append(&mut msg_ciphertext);
 	
-	Ok(((own_pubkey_kyber, own_seckey_kyber), (own_pubkey_curve, own_seckey_curve), new_pfs_key, remote_pfs_key, pfs_salt, id, id_salt, mdc, ciphertext))
+	Ok(((own_pubkey_kyber, own_seckey_kyber), (own_pubkey_curve, own_seckey_curve), new_pfs_key, remote_pfs_key, pfs_salt, id, id_salt, mdc, mdc_seed, ciphertext))
 }
 
 // parse an init request
 // returns id, id salt, mdc, keys, pfs salt, name and comment
-pub fn parse_init_request(request_body: &[u8], own_seckey_kyber: &[u8], own_seckey_curve: &[u8], own_seckey_curve_pfs_2: &[u8], own_seckey_kyber_for_salt: &[u8], own_seckey_curve_for_salt: &[u8]) -> Result<(String, Vec<u8>, String, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, String, String), String> {
+pub fn parse_init_request(request_body: &[u8], own_seckey_kyber: &[u8], own_seckey_curve: &[u8], own_seckey_curve_pfs_2: &[u8], own_seckey_kyber_for_salt: &[u8], own_seckey_curve_for_salt: &[u8]) -> Result<(String, Vec<u8>, String, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, String, String, String), String> {
 	// check length
 	if request_body.len() <= 32*2 + 1568 { error!("request was too short!"); }
 	
@@ -253,7 +259,7 @@ pub fn parse_init_request(request_body: &[u8], own_seckey_kyber: &[u8], own_seck
 		Err(err) => return Err(err)
 	};
 	
-	Ok((init_request.id, id_salt, init_request.mdc, remote_pubkey_kyber, remote_pubkey_sig, own_pfs_key, new_remote_pfs_key, pfs_salt, init_request.name, init_request.comment))
+	Ok((init_request.id, id_salt, init_request.mdc, remote_pubkey_kyber, remote_pubkey_sig, own_pfs_key, new_remote_pfs_key, pfs_salt, init_request.name, init_request.comment, init_request.mdc_seed))
 }
 
 // accept init request

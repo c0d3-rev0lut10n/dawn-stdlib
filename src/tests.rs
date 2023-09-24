@@ -35,10 +35,10 @@ fn test_init_and_messaging() {
 	let (alice_pk_sig, alice_sk_sig) = sign_keygen();
 	
 	// Alice sends an init request to Bob
-	let ((alice_pk_kyber, alice_sk_kyber), (alice_pk_curve, alice_sk_curve), alice_new_pfs_key, recv_bob_pfs_key, pfs_salt, id, id_salt, mdc, init_request_ciphertext) = gen_init_request(&bob_init_pk_kyber, &bob_init_pk_kyber_for_salt, &bob_init_pk_curve, &bob_init_pk_curve_pfs_2, &bob_init_pk_curve_for_salt, &alice_pk_sig, &alice_sk_sig, name, comment).unwrap();
+	let ((alice_pk_kyber, alice_sk_kyber), (alice_pk_curve, alice_sk_curve), alice_new_pfs_key, recv_bob_pfs_key, pfs_salt, id, id_salt, mdc, mdc_seed, init_request_ciphertext) = gen_init_request(&bob_init_pk_kyber, &bob_init_pk_kyber_for_salt, &bob_init_pk_curve, &bob_init_pk_curve_pfs_2, &bob_init_pk_curve_for_salt, &alice_pk_sig, &alice_sk_sig, name, comment).unwrap();
 	
 	// Bob's client parses the init request
-	let (recv_id, recv_id_salt, recv_mdc, recv_alice_pk_kyber, recv_alice_pk_sig, bob_pfs_key, recv_alice_new_pfs_key, recv_pfs_salt, recv_name, recv_comment) = parse_init_request(&init_request_ciphertext, &bob_init_sk_kyber, &bob_init_sk_curve, &bob_init_sk_curve_pfs_2, &bob_init_sk_kyber_for_salt, &bob_init_sk_curve_for_salt).unwrap();
+	let (recv_id, recv_id_salt, recv_mdc, recv_alice_pk_kyber, recv_alice_pk_sig, bob_pfs_key, recv_alice_new_pfs_key, recv_pfs_salt, recv_name, recv_comment, recv_mdc_seed) = parse_init_request(&init_request_ciphertext, &bob_init_sk_kyber, &bob_init_sk_curve, &bob_init_sk_curve_pfs_2, &bob_init_sk_kyber_for_salt, &bob_init_sk_curve_for_salt).unwrap();
 	
 	// check the received init request
 	assert_eq!(recv_id, id);
@@ -51,6 +51,7 @@ fn test_init_and_messaging() {
 	assert_eq!(recv_pfs_salt, pfs_salt);
 	assert_eq!(recv_name, name);
 	assert_eq!(recv_comment, comment);
+	assert_eq!(recv_mdc_seed, mdc_seed);
 	
 	// Bob accepts the init request
 	let (bob_new_pfs_key_2, (bob_pk_kyber, bob_sk_kyber), mdc_2, init_accept_ciphertext) = accept_init_request(&bob_pk_sig, &bob_sk_sig, &recv_alice_pk_kyber, &bob_pfs_key, &pfs_salt).unwrap();
