@@ -264,9 +264,9 @@ pub fn parse_init_request(request_body: &[u8], own_seckey_kyber: &[u8], own_seck
 
 // accept init request
 // returns the new PFS key, own kyber keypair, message detail code and ciphertext
-pub fn accept_init_request(own_pubkey_sig: &[u8], own_seckey_sig: &[u8], remote_pubkey_kyber: &[u8], pfs_key: &[u8], pfs_salt: &[u8]) -> Result<(Vec<u8>, (Vec<u8>, Vec<u8>), String, Vec<u8>), String> {
+pub fn accept_init_request(own_pubkey_sig: &[u8], own_seckey_sig: &[u8], remote_pubkey_kyber: &[u8], pfs_key: &[u8], pfs_salt: &[u8], id: &str, mdc_seed: &str) -> Result<(Vec<u8>, (Vec<u8>, Vec<u8>), String, Vec<u8>), String> {
 	
-	let mdc = mdc_gen();
+	let mdc = predictable_mdc_gen(mdc_seed, id);
 	let (own_pubkey_kyber, own_seckey_kyber) = kyber_keygen();
 	
 	let message_data = Message::InitAccept( InitAccept {
@@ -364,9 +364,9 @@ pub fn parse_msg(msg_ciphertext: &[u8], own_seckey_kyber: &[u8], remote_pubkey_s
 
 // send a message
 // returns new PFS key, message detail code and ciphertext
-pub fn send_msg((msg_type, msg_text, msg_data): (u8, Option<&str>, Option<&[u8]>), remote_pubkey_kyber: &[u8], own_seckey_sig: Option<&[u8]>, pfs_key: &[u8], pfs_salt: &[u8]) -> Result<(Vec<u8>, String, Vec<u8>), String> {
+pub fn send_msg((msg_type, msg_text, msg_data): (u8, Option<&str>, Option<&[u8]>), remote_pubkey_kyber: &[u8], own_seckey_sig: Option<&[u8]>, pfs_key: &[u8], pfs_salt: &[u8], id: &str, mdc_seed: &str) -> Result<(Vec<u8>, String, Vec<u8>), String> {
 	// create message
-	let mdc = mdc_gen();
+	let mdc = predictable_mdc_gen(mdc_seed, id);
 	let message_data: Message = match msg_type {
 		content_type::TEXT => { 
 			if msg_text.is_none() { error!("no text was provided"); }
