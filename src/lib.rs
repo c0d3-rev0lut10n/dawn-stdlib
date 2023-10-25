@@ -34,7 +34,7 @@ mod tests;
 // Error return macro
 macro_rules! error{
 	($a:expr) => {
-		return Err($a.to_string())
+		return Err(String::from("@dawn-stdlib: ") + &$a)
 	}
 }
 
