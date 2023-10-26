@@ -129,7 +129,7 @@ pub fn gen_init_request(
 		Vec<u8> // encrypted message
 	), String> {
 	// check input
-	if name.len() == 0 { error!("name must not be empty"); }
+	if name.is_empty() { error!("name must not be empty"); }
 	
 	let (
 		(own_pubkey_kyber, own_seckey_kyber),
@@ -140,19 +140,19 @@ pub fn gen_init_request(
 	) = init();
 	let (own_pubkey_curve_pfs_2, own_seckey_curve_pfs_2) = curve_keygen();
 	
-	let own_pfs_key = match get_curve_secret(&own_seckey_curve, &remote_pubkey_curve) {
+	let own_pfs_key = match get_curve_secret(&own_seckey_curve, remote_pubkey_curve) {
 		Ok(res) => res,
 		Err(err) => return Err(err)
 	};
-	let remote_pfs_key = match get_curve_secret(&own_seckey_curve_pfs_2, &remote_pubkey_curve_pfs_2) {
+	let remote_pfs_key = match get_curve_secret(&own_seckey_curve_pfs_2, remote_pubkey_curve_pfs_2) {
 		Ok(res) => res,
 		Err(err) => return Err(err)
 	};
-	let derive_salt_curve = match get_curve_secret(&own_seckey_curve_for_salt, &remote_pubkey_curve_for_salt) {
+	let derive_salt_curve = match get_curve_secret(&own_seckey_curve_for_salt, remote_pubkey_curve_for_salt) {
 		Ok(res) => res,
 		Err(err) => return Err(err)
 	};
-	let (derive_salt_kyber, mut derive_salt_kyber_ciphertext) = match get_kyber_secret(&remote_pubkey_kyber_for_salt) {
+	let (derive_salt_kyber, mut derive_salt_kyber_ciphertext) = match get_kyber_secret(remote_pubkey_kyber_for_salt) {
 		Ok(res) => res,
 		Err(_) => { error!("failed to get kyber secret for salt derivation"); }
 	};
@@ -210,11 +210,11 @@ pub fn parse_init_request(request_body: &[u8], own_seckey_kyber: &[u8], own_seck
 		Ok(res) => res,
 		Err(err) => return Err(err)
 	};
-	let derive_salt_curve = match get_curve_secret(&own_seckey_curve_for_salt, &remote_pubkey_curve_for_salt) {
+	let derive_salt_curve = match get_curve_secret(own_seckey_curve_for_salt, remote_pubkey_curve_for_salt) {
 		Ok(res) => res,
 		Err(err) => return Err(err)
 	};
-	let derive_salt_kyber = match decrypt_kyber_secret(&remote_kyber_ciphertext_for_salt, &own_seckey_kyber_for_salt) {
+	let derive_salt_kyber = match decrypt_kyber_secret(remote_kyber_ciphertext_for_salt, own_seckey_kyber_for_salt) {
 		Ok(res) => res,
 		Err(_) => { error!("failed to decrypt kyber secret for salt derivation"); }
 	};
@@ -254,7 +254,7 @@ pub fn parse_init_request(request_body: &[u8], own_seckey_kyber: &[u8], own_seck
 	};
 	
 	// derive own pfs key
-	let own_pfs_key = match get_curve_secret(&own_seckey_curve_pfs_2, &remote_pubkey_curve_pfs_2) {
+	let own_pfs_key = match get_curve_secret(own_seckey_curve_pfs_2, &remote_pubkey_curve_pfs_2) {
 		Ok(res) => res,
 		Err(err) => return Err(err)
 	};
@@ -271,7 +271,7 @@ pub fn accept_init_request(own_pubkey_sig: &[u8], own_seckey_sig: &[u8], remote_
 	
 	let message_data = Message::InitAccept( InitAccept {
 		kyber: encode(&own_pubkey_kyber),
-		sign: encode(&own_pubkey_sig),
+		sign: encode(own_pubkey_sig),
 		mdc: mdc.clone(),
 	} );
 	let message = match serde_json::to_string(&message_data) {
@@ -382,25 +382,22 @@ pub fn send_msg((msg_type, msg_text, msg_data): (u8, Option<&str>, Option<&[u8]>
 			if msg_data.is_none() { error!("missing event data"); }
 			Message::Internal( InternalMessage {
 				event: event_id.unwrap(),
-				event_data: BASE64.encode(&msg_data.unwrap()),
+				event_data: BASE64.encode(msg_data.unwrap()),
 				mdc: mdc.clone()
 			} )
 		},
 		content_type::VOICE => {
 			if msg_data.is_none() { error!("no voice data was provided"); }
 			Message::Voice( VoiceMessage {
-				voice: BASE64.encode(&msg_data.unwrap()),
+				voice: BASE64.encode(msg_data.unwrap()),
 				mdc: mdc.clone()
 			} )
 		},
 		content_type::PICTURE => {
 			if msg_data.is_none() { error!("no picture data was provided"); }
-			let description = match msg_text {
-				Some(text) => text,
-				None => ""
-			};
+			let description = msg_text.unwrap_or("");
 			Message::Picture( PictureMessage {
-				picture: BASE64.encode(&msg_data.unwrap()),
+				picture: BASE64.encode(msg_data.unwrap()),
 				description: description.to_string(),
 				mdc: mdc.clone()
 			} )
@@ -429,7 +426,7 @@ pub fn send_msg((msg_type, msg_text, msg_data): (u8, Option<&str>, Option<&[u8]>
 				media_type: msg_data[0],
 				media_link: media_link.to_string(),
 				media_key: media_key.to_string(),
-				description: description,
+				description,
 				mdc: mdc.clone()
 			} )
 		},
@@ -472,11 +469,11 @@ pub fn decrypt_file(ciphertext: &[u8], key: &[u8]) -> Result<Vec<u8>, String> {
 
 // this generates a handle
 pub fn gen_handle(init_pubkey_kyber: &[u8], init_pubkey_curve: &[u8], init_pubkey_curve_pfs_2: &[u8], init_pubkey_kyber_for_salt: &[u8], init_pubkey_curve_for_salt: &[u8], name: &str) -> Vec<u8> {
-	let init_pubkey_kyber_string = encode(&init_pubkey_kyber);
-	let init_pubkey_curve_string = encode(&init_pubkey_curve);
-	let init_pubkey_curve_pfs_2_string = encode(&init_pubkey_curve_pfs_2);
-	let init_pubkey_kyber_for_salt_string = encode(&init_pubkey_kyber_for_salt);
-	let init_pubkey_curve_for_salt_string = encode(&init_pubkey_curve_for_salt);
+	let init_pubkey_kyber_string = encode(init_pubkey_kyber);
+	let init_pubkey_curve_string = encode(init_pubkey_curve);
+	let init_pubkey_curve_pfs_2_string = encode(init_pubkey_curve_pfs_2);
+	let init_pubkey_kyber_for_salt_string = encode(init_pubkey_kyber_for_salt);
+	let init_pubkey_curve_for_salt_string = encode(init_pubkey_curve_for_salt);
 	let handle_content = format!("{}\n{}\n{}\n{}\n{}\n{}", init_pubkey_kyber_string, init_pubkey_curve_string, init_pubkey_curve_pfs_2_string, init_pubkey_kyber_for_salt_string, init_pubkey_curve_for_salt_string, name);
 	handle_content.as_bytes().to_vec()
 }
@@ -487,7 +484,7 @@ pub fn parse_handle(handle_content: Vec<u8>) -> Result<(Vec<u8>, Vec<u8>, Vec<u8
 		Ok(res) => res,
 		Err(_) => error!("handle content is not valid UTF-8!")
 	};
-	let mut information = handle_string.split("\n");
+	let mut information = handle_string.split('\n');
 	
 	let init_pubkey_kyber = match information.next() {
 		Some(res) => match decode(res) {
