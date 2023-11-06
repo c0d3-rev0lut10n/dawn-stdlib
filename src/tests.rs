@@ -35,7 +35,8 @@ fn test_init_and_messaging() {
 	let (alice_pk_sig, alice_sk_sig) = sign_keygen();
 	
 	// Alice sends an init request to Bob
-	let ((alice_pk_kyber, alice_sk_kyber), (alice_pk_curve, alice_sk_curve), alice_new_pfs_key, recv_bob_pfs_key, pfs_salt, id, id_salt, mdc, mdc_seed, init_request_ciphertext) = gen_init_request(&bob_init_pk_kyber, &bob_init_pk_kyber_for_salt, &bob_init_pk_curve, &bob_init_pk_curve_pfs_2, &bob_init_pk_curve_for_salt, &alice_pk_sig, &alice_sk_sig, name, comment).unwrap();
+	let mdc = mdc_gen();
+	let ((alice_pk_kyber, alice_sk_kyber), (alice_pk_curve, alice_sk_curve), alice_new_pfs_key, recv_bob_pfs_key, pfs_salt, id, id_salt, _, mdc_seed, init_request_ciphertext) = gen_init_request(&bob_init_pk_kyber, &bob_init_pk_kyber_for_salt, &bob_init_pk_curve, &bob_init_pk_curve_pfs_2, &bob_init_pk_curve_for_salt, &alice_pk_sig, &alice_sk_sig, name, comment, &mdc).unwrap();
 	
 	// Bob's client parses the init request
 	let (recv_id, recv_id_salt, recv_mdc, recv_alice_pk_kyber, recv_alice_pk_sig, bob_pfs_key, recv_alice_new_pfs_key, recv_pfs_salt, recv_name, recv_comment, recv_mdc_seed) = parse_init_request(&init_request_ciphertext, &bob_init_sk_kyber, &bob_init_sk_curve, &bob_init_sk_curve_pfs_2, &bob_init_sk_kyber_for_salt, &bob_init_sk_curve_for_salt).unwrap();
@@ -169,23 +170,26 @@ fn test_handle_parsing() {
 	let init_pk_kyber_for_salt = vec![42,42,0,0,0];
 	let init_pk_curve_for_salt = vec![0,0,3,0];
 	let name = "Test 42";
-	let handle = gen_handle(&init_pk_kyber, &init_pk_curve, &init_pk_curve_pfs_2, &init_pk_kyber_for_salt, &init_pk_curve_for_salt, name);
-	let (parsed_init_pk_kyber, parsed_init_pk_curve, parsed_init_pk_curve_pfs_2, parsed_init_pk_kyber_for_salt, parsed_init_pk_curve_for_salt, parsed_name) = parse_handle(handle).unwrap();
+	let mdc = mdc_gen();
+	let handle = gen_handle(&init_pk_kyber, &init_pk_curve, &init_pk_curve_pfs_2, &init_pk_kyber_for_salt, &init_pk_curve_for_salt, name, &mdc);
+	let (parsed_init_pk_kyber, parsed_init_pk_curve, parsed_init_pk_curve_pfs_2, parsed_init_pk_kyber_for_salt, parsed_init_pk_curve_for_salt, parsed_name, parsed_mdc) = parse_handle(handle).unwrap();
 	assert_eq!(init_pk_kyber, parsed_init_pk_kyber);
 	assert_eq!(init_pk_curve, parsed_init_pk_curve);
 	assert_eq!(init_pk_curve_pfs_2, parsed_init_pk_curve_pfs_2);
 	assert_eq!(init_pk_kyber_for_salt, parsed_init_pk_kyber_for_salt);
 	assert_eq!(init_pk_curve_for_salt, parsed_init_pk_curve_for_salt);
 	assert_eq!(name, parsed_name);
+	assert_eq!(mdc, parsed_mdc);
 }
 
 #[test]
 fn test_gen_init_request() {
-	assert!(gen_init_request(&vec![], &vec![], &vec![], &vec![], &vec![], &vec![], &vec![], "", "").is_err());
+	assert!(gen_init_request(&vec![], &vec![], &vec![], &vec![], &vec![], &vec![], &vec![], "", "", "").is_err());
 	let name = "alice";
 	let comment = "\nhi\n\\{}[]{{}\"";
+	let mdc = mdc_gen();
 	let (bob_init_pk_curve, bob_init_sk_curve) = curve_keygen();
 	let (bob_init_pk_kyber, bob_init_sk_kyber) = kyber_keygen();
 	let (alice_pk_sig, alice_sk_sig) = sign_keygen();
-	assert!(gen_init_request(&bob_init_pk_kyber, &bob_init_pk_kyber, &bob_init_pk_curve, &bob_init_pk_curve, &bob_init_pk_curve, &alice_pk_sig, &alice_sk_sig, "", comment).is_err());
+	assert!(gen_init_request(&bob_init_pk_kyber, &bob_init_pk_kyber, &bob_init_pk_curve, &bob_init_pk_curve, &bob_init_pk_curve, &alice_pk_sig, &alice_sk_sig, "", comment, &mdc).is_err());
 }

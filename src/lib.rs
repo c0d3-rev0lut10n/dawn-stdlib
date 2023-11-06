@@ -114,7 +114,8 @@ pub fn gen_init_request(
 	own_pubkey_sig: &[u8],
 	own_seckey_sig: &[u8],
 	name: &str,
-	comment: &str
+	comment: &str,
+	mdc: &str
 ) -> Result<
 	(
 		(Vec<u8>, Vec<u8>), // own kyber keypair
@@ -160,7 +161,6 @@ pub fn gen_init_request(
 		Ok(res) => res,
 		Err(_) => { error!("failed to derive salts"); }
 	};
-	let mdc = mdc_gen();
 	
 	// generate an mdc seed for predictable message detail codes (necessary for subscription-based message transport)
 	let mdc_seed = encode(sym_key_gen());
@@ -193,7 +193,7 @@ pub fn gen_init_request(
 	ciphertext.append(&mut derive_salt_kyber_ciphertext);
 	ciphertext.append(&mut msg_ciphertext);
 	
-	Ok(((own_pubkey_kyber, own_seckey_kyber), (own_pubkey_curve, own_seckey_curve), new_pfs_key, remote_pfs_key, pfs_salt, id, id_salt, mdc, mdc_seed, ciphertext))
+	Ok(((own_pubkey_kyber, own_seckey_kyber), (own_pubkey_curve, own_seckey_curve), new_pfs_key, remote_pfs_key, pfs_salt, id, id_salt, mdc.to_string(), mdc_seed, ciphertext))
 }
 
 // parse an init request
@@ -468,18 +468,18 @@ pub fn decrypt_file(ciphertext: &[u8], key: &[u8]) -> Result<Vec<u8>, String> {
 
 
 // this generates a handle
-pub fn gen_handle(init_pubkey_kyber: &[u8], init_pubkey_curve: &[u8], init_pubkey_curve_pfs_2: &[u8], init_pubkey_kyber_for_salt: &[u8], init_pubkey_curve_for_salt: &[u8], name: &str) -> Vec<u8> {
+pub fn gen_handle(init_pubkey_kyber: &[u8], init_pubkey_curve: &[u8], init_pubkey_curve_pfs_2: &[u8], init_pubkey_kyber_for_salt: &[u8], init_pubkey_curve_for_salt: &[u8], name: &str, mdc: &str) -> Vec<u8> {
 	let init_pubkey_kyber_string = encode(init_pubkey_kyber);
 	let init_pubkey_curve_string = encode(init_pubkey_curve);
 	let init_pubkey_curve_pfs_2_string = encode(init_pubkey_curve_pfs_2);
 	let init_pubkey_kyber_for_salt_string = encode(init_pubkey_kyber_for_salt);
 	let init_pubkey_curve_for_salt_string = encode(init_pubkey_curve_for_salt);
-	let handle_content = format!("{}\n{}\n{}\n{}\n{}\n{}", init_pubkey_kyber_string, init_pubkey_curve_string, init_pubkey_curve_pfs_2_string, init_pubkey_kyber_for_salt_string, init_pubkey_curve_for_salt_string, name);
+	let handle_content = format!("{}\n{}\n{}\n{}\n{}\n{}\n{}", init_pubkey_kyber_string, init_pubkey_curve_string, init_pubkey_curve_pfs_2_string, init_pubkey_kyber_for_salt_string, init_pubkey_curve_for_salt_string, name, mdc);
 	handle_content.as_bytes().to_vec()
 }
 
 // this parses a handle
-pub fn parse_handle(handle_content: Vec<u8>) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, String), String> {
+pub fn parse_handle(handle_content: Vec<u8>) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, String, String), String> {
 	let handle_string = match String::from_utf8(handle_content) {
 		Ok(res) => res,
 		Err(_) => error!("handle content is not valid UTF-8!")
@@ -525,5 +525,9 @@ pub fn parse_handle(handle_content: Vec<u8>) -> Result<(Vec<u8>, Vec<u8>, Vec<u8
 		Some(res) => res.to_string(),
 		None => error!("handle format invalid!")
 	};
-	Ok((init_pubkey_kyber, init_pubkey_curve, init_pubkey_curve_pfs_2, init_pubkey_kyber_for_salt, init_pubkey_curve_for_salt, name))
+	let mdc = match information.next() {
+		Some(res) => res.to_string(),
+		None => error!("handle format invalid!")
+	};
+	Ok((init_pubkey_kyber, init_pubkey_curve, init_pubkey_curve_pfs_2, init_pubkey_kyber_for_salt, init_pubkey_curve_for_salt, name, mdc))
 }
