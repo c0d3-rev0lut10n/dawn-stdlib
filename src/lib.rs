@@ -198,7 +198,7 @@ pub fn gen_init_request(
 
 // parse an init request
 // returns id, id salt, mdc, keys, pfs salt, name and comment
-pub fn parse_init_request(request_body: &[u8], own_seckey_kyber: &[u8], own_seckey_curve: &[u8], own_seckey_curve_pfs_2: &[u8], own_seckey_kyber_for_salt: &[u8], own_seckey_curve_for_salt: &[u8]) -> Result<(String, Vec<u8>, String, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, String, String, String), String> {
+pub fn parse_init_request(request_body: &[u8], own_seckey_kyber: &[u8], own_seckey_curve: &[u8], own_seckey_curve_pfs_2: &[u8], own_seckey_kyber_for_salt: &[u8], own_seckey_curve_for_salt: &[u8]) -> Result<(String, Vec<u8>, String, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, String, String, String), String> {
 	// check length
 	if request_body.len() <= 32*2 + 1568 { error!("request was too short!"); }
 	
@@ -259,7 +259,7 @@ pub fn parse_init_request(request_body: &[u8], own_seckey_kyber: &[u8], own_seck
 		Err(err) => return Err(err)
 	};
 	
-	Ok((init_request.id, id_salt, init_request.mdc, remote_pubkey_kyber, remote_pubkey_sig, own_pfs_key, new_remote_pfs_key, pfs_salt, init_request.name, init_request.comment, init_request.mdc_seed))
+	Ok((init_request.id, id_salt, init_request.mdc, remote_pubkey_kyber, remote_pubkey_curve.to_vec(), remote_pubkey_curve_pfs_2, remote_pubkey_sig, own_pfs_key, new_remote_pfs_key, pfs_salt, init_request.name, init_request.comment, init_request.mdc_seed))
 }
 
 // accept init request
