@@ -39,7 +39,7 @@ fn test_init_and_messaging() {
 	let ((alice_pk_kyber, alice_sk_kyber), (alice_pk_curve, alice_sk_curve), alice_new_pfs_key, recv_bob_pfs_key, pfs_salt, id, id_salt, _, mdc_seed, init_request_ciphertext) = gen_init_request(&bob_init_pk_kyber, &bob_init_pk_kyber_for_salt, &bob_init_pk_curve, &bob_init_pk_curve_pfs_2, &bob_init_pk_curve_for_salt, &alice_pk_sig, &alice_sk_sig, name, comment, &mdc).unwrap();
 	
 	// Bob's client parses the init request
-	let (recv_id, recv_id_salt, recv_mdc, recv_alice_pk_kyber, recv_alice_pk_sig, bob_pfs_key, recv_alice_new_pfs_key, recv_pfs_salt, recv_name, recv_comment, recv_mdc_seed) = parse_init_request(&init_request_ciphertext, &bob_init_sk_kyber, &bob_init_sk_curve, &bob_init_sk_curve_pfs_2, &bob_init_sk_kyber_for_salt, &bob_init_sk_curve_for_salt).unwrap();
+	let (recv_id, recv_id_salt, recv_mdc, recv_alice_pk_kyber, recv_alice_pk_curve, recv_alice_pk_curve_pfs, recv_alice_pk_sig, bob_pfs_key, recv_alice_new_pfs_key, recv_pfs_salt, recv_name, recv_comment, recv_mdc_seed) = parse_init_request(&init_request_ciphertext, &bob_init_sk_kyber, &bob_init_sk_curve, &bob_init_sk_curve_pfs_2, &bob_init_sk_kyber_for_salt, &bob_init_sk_curve_for_salt).unwrap();
 	
 	// check the received init request
 	assert_eq!(recv_id, id);
