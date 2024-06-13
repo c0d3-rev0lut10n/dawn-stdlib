@@ -120,6 +120,7 @@ pub fn gen_init_request(
 	(
 		(Vec<u8>, Vec<u8>), // own kyber keypair
 		(Vec<u8>, Vec<u8>), // own curve keypair
+		(Vec<u8>, Vec<u8>), // own curve keypair for PFS secret
 		Vec<u8>, // own pfs key
 		Vec<u8>, // remote pfs key
 		Vec<u8>, // pfs salt
@@ -170,7 +171,7 @@ pub fn gen_init_request(
 		id: id.to_string(),
 		mdc: mdc.to_string(),
 		kyber: encode(own_pubkey_kyber.clone()),
-		curve_for_pfs: encode(own_pubkey_curve_pfs_2), // we can encrypt this key within the message as the remote side doesn't need it to decrypt the message
+		curve_for_pfs: encode(own_pubkey_curve_pfs_2.clone()), // we can encrypt this key within the message as the remote side doesn't need it to decrypt the message
 		sign: encode(own_pubkey_sig),
 		name: name.to_string(),
 		comment: comment.to_string(),
@@ -193,7 +194,7 @@ pub fn gen_init_request(
 	ciphertext.append(&mut derive_salt_kyber_ciphertext);
 	ciphertext.append(&mut msg_ciphertext);
 	
-	Ok(((own_pubkey_kyber, own_seckey_kyber), (own_pubkey_curve, own_seckey_curve), new_pfs_key, remote_pfs_key, pfs_salt, id, id_salt, mdc.to_string(), mdc_seed, ciphertext))
+	Ok(((own_pubkey_kyber, own_seckey_kyber), (own_pubkey_curve, own_seckey_curve), (own_pubkey_curve_pfs_2, own_seckey_curve_pfs_2), new_pfs_key, remote_pfs_key, pfs_salt, id, id_salt, mdc.to_string(), mdc_seed, ciphertext))
 }
 
 // parse an init request
