@@ -331,7 +331,7 @@ pub fn parse_msg(msg_ciphertext: &[u8], own_seckey_kyber: &[u8], remote_pubkey_s
 	// decrypt
 	let (msg_content, new_pfs_key, warning) = match decrypt_msg(own_seckey_kyber, remote_pubkey_sig, pfs_key, pfs_salt, msg_ciphertext) {
 		Ok(res) => res,
-		Err(_) => error!("decryption failed")
+		Err(err) => error!(&format!("decryption failed: {}", err))
 	};
 	if warning != warning::NONE && remote_pubkey_sig.is_some() {
 		error!("CRITICAL: signature verification was requested, but the remote side did not provide a signature");
